@@ -14,6 +14,8 @@ from ..ai_providers.factory import get_provider
 from ..verification import verify_findings
 from ..redact import redact_text, restore_text
 from ..ingest import ingest_file
+from ..audit.chain import log_audit_event
+from ..workflow.state_machine import validate_transition, evaluate_escalation
 
 router = APIRouter(prefix="/content", tags=["content"])
 
@@ -26,6 +28,11 @@ class ContentCreateSchema(BaseModel):
 class ApprovalSchema(BaseModel):
     decision: str  # approved | changes_requested | rejected | escalated
     reason: Optional[str] = None
+
+class CommentCreateSchema(BaseModel):
+    body: str
+    finding_id: Optional[int] = None
+    parent_id: Optional[int] = None
 
 @router.post("/", status_code=201)
 def create_content(
@@ -63,6 +70,17 @@ def create_content(
 
     content.current_version_id = version.id
     db.commit()
+
+    log_audit_event(
+        db=db,
+        workspace_id=current_user.workspace_id,
+        actor_id=current_user.id,
+        action="content.created",
+        entity="Content",
+        entity_id=content.id,
+        payload={"title": content.title, "type": content.type},
+    )
+
     return {
         "content_id": content.id,
         "version_id": version.id,
@@ -114,6 +132,17 @@ def upload_content(
 
     content.current_version_id = version.id
     db.commit()
+
+    log_audit_event(
+        db=db,
+        workspace_id=current_user.workspace_id,
+        actor_id=current_user.id,
+        action="content.uploaded",
+        entity="Content",
+        entity_id=content.id,
+        payload={"title": content.title, "type": content.type, "file_ref": file_ref},
+    )
+
     return {
         "content_id": content.id,
         "version_id": version.id,
@@ -131,7 +160,6 @@ def get_content(
     content = db.query(models.Content).filter(models.Content.id == content_id).first()
     if not content:
         raise HTTPException(status_code=404, detail="Content not found")
-    # Workspace isolation check
     if content.workspace_id != current_user.workspace_id:
         raise HTTPException(status_code=403, detail="Cross-workspace access denied")
 
@@ -161,8 +189,6 @@ def review_content(
     content = db.query(models.Content).filter(models.Content.id == content_id).first()
     if not content:
         raise HTTPException(status_code=404, detail="Content not found")
-
-    # Workspace isolation check
     if content.workspace_id != current_user.workspace_id:
         raise HTTPException(status_code=403, detail="Cross-workspace access denied")
 
@@ -243,12 +269,76 @@ def review_content(
     content.status = "ai_checked"
     db.commit()
 
+    log_audit_event(
+        db=db,
+        workspace_id=current_user.workspace_id,
+        actor_id=current_user.id,
+        action="content.reviewed",
+        entity="Content",
+        entity_id=content.id,
+        payload={"review_id": review.id, "findings_count": len(clean_findings)},
+    )
+
     return {
         "review_id": review.id,
         "status": review.status,
         "redaction_count": counts["total"],
         "redacted_counts": counts,
         "findings": clean_findings,
+    }
+
+@router.post("/{content_id}/submit", status_code=200)
+def submit_content_for_approval(
+    content_id: int,
+    db: Session = Depends(session.get_db),
+    current_user: models.User = Depends(require_roles(models.RoleEnum.creator)),
+):
+    content = db.query(models.Content).filter(models.Content.id == content_id).first()
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+    if content.workspace_id != current_user.workspace_id:
+        raise HTTPException(status_code=403, detail="Cross-workspace access denied")
+
+    validate_transition(content.status, "submitted")
+
+    # Get latest review findings
+    latest_review = (
+        db.query(models.ReviewRun)
+        .filter(models.ReviewRun.version_id == content.current_version_id)
+        .order_by(models.ReviewRun.id.desc())
+        .first()
+    )
+    findings = (
+        db.query(models.Finding).filter(models.Finding.review_run_id == latest_review.id).all()
+        if latest_review else []
+    )
+    risk_rules = (
+        db.query(models.RiskRule).filter(models.RiskRule.workspace_id == content.workspace_id).all()
+    )
+
+    is_escalated, reason = evaluate_escalation(findings, risk_rules)
+    if is_escalated:
+        content.status = "escalated"
+    else:
+        content.status = "manager_review"
+
+    db.commit()
+
+    log_audit_event(
+        db=db,
+        workspace_id=current_user.workspace_id,
+        actor_id=current_user.id,
+        action="content.submitted",
+        entity="Content",
+        entity_id=content.id,
+        payload={"new_status": content.status, "escalated": is_escalated, "reason": reason},
+    )
+
+    return {
+        "content_id": content.id,
+        "status": content.status,
+        "escalated": is_escalated,
+        "escalation_reason": reason if is_escalated else None,
     }
 
 @router.post("/{content_id}/approve", status_code=200)
@@ -262,7 +352,6 @@ def approve_content(
     if not content:
         raise HTTPException(status_code=404, detail="Content not found")
 
-    # Workspace isolation check
     if content.workspace_id != current_user.workspace_id:
         raise HTTPException(status_code=403, detail="Cross-workspace access denied")
 
@@ -272,6 +361,15 @@ def approve_content(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Self-approval is prohibited: creator cannot approve their own content",
         )
+
+    # If content was escalated, only reviewer role or admin can sign off
+    if content.status == "escalated" and current_user.role != models.RoleEnum.reviewer and current_user.role != models.RoleEnum.admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Content is escalated: requires Authorised Reviewer signoff",
+        )
+
+    validate_transition(content.status, payload.decision)
 
     version_id = content.current_version_id or 1
     now = datetime.datetime.utcnow()
@@ -289,17 +387,23 @@ def approve_content(
         signature_hash=signature_hash,
     )
     db.add(approval)
-
-    if payload.decision == "approved":
-        content.status = "approved"
-    elif payload.decision == "changes_requested":
-        content.status = "changes_requested"
-    elif payload.decision == "escalated":
-        content.status = "escalated"
-    elif payload.decision == "rejected":
-        content.status = "rejected"
-
+    content.status = payload.decision
     db.commit()
+
+    log_audit_event(
+        db=db,
+        workspace_id=current_user.workspace_id,
+        actor_id=current_user.id,
+        action=f"content.{payload.decision}",
+        entity="Content",
+        entity_id=content.id,
+        payload={
+            "decision": payload.decision,
+            "signature_hash": signature_hash,
+            "reason": payload.reason,
+        },
+    )
+
     return {
         "approval_id": approval.id,
         "content_id": content.id,
@@ -307,6 +411,72 @@ def approve_content(
         "decision": approval.decision,
         "signature_hash": approval.signature_hash,
     }
+
+# --- Comments ---
+
+@router.post("/{content_id}/comments", status_code=201)
+def add_comment(
+    content_id: int,
+    payload: CommentCreateSchema,
+    db: Session = Depends(session.get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    content = db.query(models.Content).filter(models.Content.id == content_id).first()
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+    if content.workspace_id != current_user.workspace_id:
+        raise HTTPException(status_code=403, detail="Cross-workspace access denied")
+
+    comment = models.Comment(
+        content_id=content.id,
+        version_id=content.current_version_id or 1,
+        finding_id=payload.finding_id,
+        author_id=current_user.id,
+        body=payload.body,
+        parent_id=payload.parent_id,
+    )
+    db.add(comment)
+    db.commit()
+    db.refresh(comment)
+
+    log_audit_event(
+        db=db,
+        workspace_id=current_user.workspace_id,
+        actor_id=current_user.id,
+        action="comment.created",
+        entity="Comment",
+        entity_id=comment.id,
+        payload={"content_id": content.id, "finding_id": payload.finding_id},
+    )
+
+    return {
+        "comment_id": comment.id,
+        "content_id": comment.content_id,
+        "author_id": comment.author_id,
+        "body": comment.body,
+        "created_at": comment.created_at.isoformat(),
+    }
+
+@router.get("/{content_id}/comments")
+def list_comments(
+    content_id: int,
+    db: Session = Depends(session.get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    content = db.query(models.Content).filter(models.Content.id == content_id).first()
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+    if content.workspace_id != current_user.workspace_id:
+        raise HTTPException(status_code=403, detail="Cross-workspace access denied")
+
+    return (
+        db.query(models.Comment)
+        .filter(models.Comment.content_id == content_id)
+        .order_by(models.Comment.created_at.asc())
+        .all()
+    )
+
+# --- Claims ---
 
 @router.get("/{content_id}/claims")
 def get_claim_ledger(
@@ -328,7 +498,6 @@ def get_claim_ledger(
     if not version:
         raise HTTPException(status_code=404, detail="Version not found")
 
-    # Get active KB claims
     kb = (
         db.query(models.KBVersion)
         .filter(models.KBVersion.workspace_id == content.workspace_id, models.KBVersion.is_active == True)
@@ -351,4 +520,3 @@ def get_claim_ledger(
         "unsupported_count": sum(1 for c in ledger if c["status"] == "unsupported"),
         "claims": ledger,
     }
-
