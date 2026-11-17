@@ -2,14 +2,14 @@ import datetime
 import os
 import uuid
 import hashlib
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Body
+from typing import Optional, List
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from ...core.config import settings
 from ...db import session, models
-from ...core.security import get_current_user
+from ...core.security import get_current_user, require_roles
 from ..ai_providers.factory import get_provider
 from ..verification import verify_findings
 from ..redact import redact_text, restore_text
@@ -23,23 +23,24 @@ class ContentCreateSchema(BaseModel):
     channel: Optional[str] = None
     body: Optional[str] = ""
 
+class ApprovalSchema(BaseModel):
+    decision: str  # approved | changes_requested | rejected | escalated
+    reason: Optional[str] = None
+
 @router.post("/", status_code=201)
 def create_content(
     payload: ContentCreateSchema,
     db: Session = Depends(session.get_db),
-    user_id: int = Depends(get_current_user),
+    current_user: models.User = Depends(require_roles(models.RoleEnum.creator)),
 ):
     actual_title = payload.title or "Untitled Draft"
     actual_type = payload.type or "text"
     actual_channel = payload.channel
     actual_body = payload.body or ""
 
-    user = db.query(models.User).filter(models.User.id == user_id).first()
-    workspace_id = user.workspace_id if user else 1
-
     content = models.Content(
-        workspace_id=workspace_id,
-        creator_id=user_id,
+        workspace_id=current_user.workspace_id,
+        creator_id=current_user.id,
         title=actual_title,
         type=actual_type,
         channel=actual_channel,
@@ -55,7 +56,7 @@ def create_content(
         text_body=actual_body,
         file_ref=None,
         content_hash=content_hash,
-        created_by=user_id,
+        created_by=current_user.id,
     )
     db.add(version)
     db.flush()
@@ -66,6 +67,7 @@ def create_content(
         "content_id": content.id,
         "version_id": version.id,
         "title": content.title,
+        "workspace_id": content.workspace_id,
         "status": content.status,
     }
 
@@ -76,11 +78,8 @@ def upload_content(
     channel: Optional[str] = Form(None),
     file: UploadFile = File(...),
     db: Session = Depends(session.get_db),
-    user_id: int = Depends(get_current_user),
+    current_user: models.User = Depends(require_roles(models.RoleEnum.creator)),
 ):
-    user = db.query(models.User).filter(models.User.id == user_id).first()
-    workspace_id = user.workspace_id if user else 1
-
     os.makedirs("uploads", exist_ok=True)
     data = file.file.read()
     fname = f"uploads/{uuid.uuid4().hex}_{file.filename}"
@@ -91,8 +90,8 @@ def upload_content(
     actual_body = extracted_text or ""
 
     content = models.Content(
-        workspace_id=workspace_id,
-        creator_id=user_id,
+        workspace_id=current_user.workspace_id,
+        creator_id=current_user.id,
         title=title,
         type=type,
         channel=channel,
@@ -108,7 +107,7 @@ def upload_content(
         text_body=actual_body,
         file_ref=file_ref,
         content_hash=content_hash,
-        created_by=user_id,
+        created_by=current_user.id,
     )
     db.add(version)
     db.flush()
@@ -119,18 +118,54 @@ def upload_content(
         "content_id": content.id,
         "version_id": version.id,
         "title": content.title,
+        "workspace_id": content.workspace_id,
         "status": content.status,
+    }
+
+@router.get("/{content_id}")
+def get_content(
+    content_id: int,
+    db: Session = Depends(session.get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    content = db.query(models.Content).filter(models.Content.id == content_id).first()
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+    # Workspace isolation check
+    if content.workspace_id != current_user.workspace_id:
+        raise HTTPException(status_code=403, detail="Cross-workspace access denied")
+
+    version = (
+        db.query(models.ContentVersion)
+        .filter(models.ContentVersion.id == content.current_version_id)
+        .first()
+    )
+    return {
+        "id": content.id,
+        "workspace_id": content.workspace_id,
+        "creator_id": content.creator_id,
+        "title": content.title,
+        "type": content.type,
+        "channel": content.channel,
+        "status": content.status,
+        "version_id": version.id if version else None,
+        "text_body": version.text_body if version else None,
     }
 
 @router.post("/{content_id}/review", status_code=202)
 def review_content(
     content_id: int,
     db: Session = Depends(session.get_db),
-    user_id: int = Depends(get_current_user),
+    current_user: models.User = Depends(get_current_user),
 ):
     content = db.query(models.Content).filter(models.Content.id == content_id).first()
     if not content:
         raise HTTPException(status_code=404, detail="Content not found")
+
+    # Workspace isolation check
+    if content.workspace_id != current_user.workspace_id:
+        raise HTTPException(status_code=403, detail="Cross-workspace access denied")
+
     version = (
         db.query(models.ContentVersion)
         .filter(models.ContentVersion.id == content.current_version_id)
@@ -214,4 +249,61 @@ def review_content(
         "redaction_count": counts["total"],
         "redacted_counts": counts,
         "findings": clean_findings,
+    }
+
+@router.post("/{content_id}/approve", status_code=200)
+def approve_content(
+    content_id: int,
+    payload: ApprovalSchema,
+    db: Session = Depends(session.get_db),
+    current_user: models.User = Depends(require_roles(models.RoleEnum.manager, models.RoleEnum.reviewer)),
+):
+    content = db.query(models.Content).filter(models.Content.id == content_id).first()
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+
+    # Workspace isolation check
+    if content.workspace_id != current_user.workspace_id:
+        raise HTTPException(status_code=403, detail="Cross-workspace access denied")
+
+    # No self-approval rule check
+    if content.creator_id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Self-approval is prohibited: creator cannot approve their own content",
+        )
+
+    version_id = content.current_version_id or 1
+    now = datetime.datetime.utcnow()
+    sig_raw = f"{content.id}:{version_id}:{current_user.id}:{payload.decision}:{now.isoformat()}"
+    signature_hash = hashlib.sha256(sig_raw.encode()).hexdigest()
+
+    approval = models.Approval(
+        content_id=content.id,
+        version_id=version_id,
+        role=current_user.role.value,
+        decision=payload.decision,
+        reason=payload.reason,
+        decided_by=current_user.id,
+        decided_at=now,
+        signature_hash=signature_hash,
+    )
+    db.add(approval)
+
+    if payload.decision == "approved":
+        content.status = "approved"
+    elif payload.decision == "changes_requested":
+        content.status = "changes_requested"
+    elif payload.decision == "escalated":
+        content.status = "escalated"
+    elif payload.decision == "rejected":
+        content.status = "rejected"
+
+    db.commit()
+    return {
+        "approval_id": approval.id,
+        "content_id": content.id,
+        "status": content.status,
+        "decision": approval.decision,
+        "signature_hash": approval.signature_hash,
     }

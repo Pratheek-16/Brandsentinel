@@ -1,13 +1,15 @@
 import time
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, List
 
 from passlib.context import CryptContext
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.orm import Session
 
 from ..core.config import settings
+from ..db import session, models
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 security_scheme = HTTPBearer(auto_error=False)
@@ -35,7 +37,10 @@ def decode_access_token(token: str) -> dict:
     except jwt.PyJWTError:
         return {}
 
-def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_scheme)) -> int:
+def get_current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_scheme),
+    db: Session = Depends(session.get_db),
+) -> models.User:
     if not credentials or not credentials.credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -43,14 +48,35 @@ def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depen
             headers={"WWW-Authenticate": "Bearer"},
         )
     payload = decode_access_token(credentials.credentials)
-    user_id = payload.get("sub")
-    if not user_id:
+    user_id_raw = payload.get("sub")
+    if not user_id_raw:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
     try:
-        return int(user_id)
+        user_id = int(user_id_raw)
     except (ValueError, TypeError):
-        return user_id
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid user id in token",
+        )
+
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user or not user.active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or inactive",
+        )
+    return user
+
+def require_roles(*allowed_roles: models.RoleEnum):
+    def role_checker(current_user: models.User = Depends(get_current_user)) -> models.User:
+        if current_user.role not in allowed_roles and current_user.role != models.RoleEnum.admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied: Required role in {[r.value for r in allowed_roles]}, user has {current_user.role.value}",
+            )
+        return current_user
+    return role_checker
