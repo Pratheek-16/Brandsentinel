@@ -52,3 +52,6 @@ Thumbs.db
 
 # Misc
 *.sqlite3
+*.db
+node_modules/
+dist/
