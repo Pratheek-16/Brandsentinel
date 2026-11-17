@@ -224,6 +224,7 @@ def review_content(
     clean_findings = verify_findings(raw_findings, redacted_text)
 
     # Persist findings
+    persisted_findings = []
     for f in clean_findings:
         span = f["span"]
         evidence = f.get("evidence", {})
@@ -249,6 +250,10 @@ def review_content(
             claim_status=f.get("claim_status", "n/a"),
         )
         db.add(new_finding)
+        db.flush()
+        f_copy = dict(f)
+        f_copy["id"] = new_finding.id
+        persisted_findings.append(f_copy)
 
     # Record AI Usage with redaction details and counts
     usage = models.AIUsage(
@@ -257,7 +262,7 @@ def review_content(
         model=review.model,
         purpose="review",
         segments_sent=len(redacted_text),
-        segments_received=len(clean_findings),
+        segments_received=len(persisted_findings),
         redacted_fields={"placeholders": list(placeholders.keys()), "counts": counts},
         redaction_count=counts["total"],
     )
@@ -276,7 +281,7 @@ def review_content(
         action="content.reviewed",
         entity="Content",
         entity_id=content.id,
-        payload={"review_id": review.id, "findings_count": len(clean_findings)},
+        payload={"review_id": review.id, "findings_count": len(persisted_findings)},
     )
 
     return {
@@ -284,7 +289,7 @@ def review_content(
         "status": review.status,
         "redaction_count": counts["total"],
         "redacted_counts": counts,
-        "findings": clean_findings,
+        "findings": persisted_findings,
     }
 
 @router.post("/{content_id}/submit", status_code=200)
@@ -520,3 +525,160 @@ def get_claim_ledger(
         "unsupported_count": sum(1 for c in ledger if c["status"] == "unsupported"),
         "claims": ledger,
     }
+
+class AcceptSuggestionSchema(BaseModel):
+    replacement_text: str
+
+class DismissFindingSchema(BaseModel):
+    reason: str
+
+@router.get("/{content_id}/findings/{finding_id}/suggestions")
+def get_finding_suggestions(
+    content_id: int,
+    finding_id: int,
+    db: Session = Depends(session.get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    content = db.query(models.Content).filter(models.Content.id == content_id).first()
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+    if content.workspace_id != current_user.workspace_id:
+        raise HTTPException(status_code=403, detail="Cross-workspace access denied")
+
+    finding = db.query(models.Finding).filter(models.Finding.id == finding_id).first()
+    if not finding:
+        raise HTTPException(status_code=404, detail="Finding not found")
+
+    version = (
+        db.query(models.ContentVersion)
+        .filter(models.ContentVersion.id == content.current_version_id)
+        .first()
+    )
+    raw_text = version.text_body or ""
+
+    from ..suggestions.engine import get_verified_suggestions
+    f_dict = {
+        "category": finding.category,
+        "severity": finding.severity,
+        "span": {
+            "start": finding.span_start,
+            "end": finding.span_end,
+            "text": finding.span_text,
+        },
+    }
+    suggestions = get_verified_suggestions(raw_text, f_dict)
+    return {
+        "finding_id": finding.id,
+        "span_text": finding.span_text,
+        "suggestions": suggestions,
+    }
+
+@router.post("/{content_id}/findings/{finding_id}/accept", status_code=200)
+def accept_finding_suggestion(
+    content_id: int,
+    finding_id: int,
+    payload: AcceptSuggestionSchema,
+    db: Session = Depends(session.get_db),
+    current_user: models.User = Depends(require_roles(models.RoleEnum.creator)),
+):
+    content = db.query(models.Content).filter(models.Content.id == content_id).first()
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+    if content.workspace_id != current_user.workspace_id:
+        raise HTTPException(status_code=403, detail="Cross-workspace access denied")
+
+    finding = db.query(models.Finding).filter(models.Finding.id == finding_id).first()
+    if not finding:
+        raise HTTPException(status_code=404, detail="Finding not found")
+
+    curr_version = (
+        db.query(models.ContentVersion)
+        .filter(models.ContentVersion.id == content.current_version_id)
+        .first()
+    )
+    old_text = curr_version.text_body or ""
+    # Splice replacement
+    new_text = old_text[:finding.span_start] + payload.replacement_text + old_text[finding.span_end:]
+
+    # Create new content version (human in the loop control)
+    new_version_no = curr_version.version_no + 1
+    new_hash = hashlib.sha256(new_text.encode()).hexdigest()
+    new_v = models.ContentVersion(
+        content_id=content.id,
+        version_no=new_version_no,
+        text_body=new_text,
+        file_ref=curr_version.file_ref,
+        content_hash=new_hash,
+        created_by=current_user.id,
+    )
+    db.add(new_v)
+    db.flush()
+
+    content.current_version_id = new_v.id
+    content.status = "revising"
+    db.commit()
+
+    log_audit_event(
+        db=db,
+        workspace_id=current_user.workspace_id,
+        actor_id=current_user.id,
+        action="finding.accepted",
+        entity="Finding",
+        entity_id=finding.id,
+        payload={
+            "content_id": content.id,
+            "new_version_id": new_v.id,
+            "version_no": new_version_no,
+            "original_span": finding.span_text,
+            "replacement": payload.replacement_text,
+        },
+    )
+
+    return {
+        "status": "applied",
+        "content_id": content.id,
+        "new_version_id": new_v.id,
+        "version_no": new_version_no,
+        "updated_text": new_text,
+    }
+
+@router.post("/{content_id}/findings/{finding_id}/dismiss", status_code=200)
+def dismiss_finding(
+    content_id: int,
+    finding_id: int,
+    payload: DismissFindingSchema,
+    db: Session = Depends(session.get_db),
+    current_user: models.User = Depends(require_roles(models.RoleEnum.creator)),
+):
+    content = db.query(models.Content).filter(models.Content.id == content_id).first()
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+    if content.workspace_id != current_user.workspace_id:
+        raise HTTPException(status_code=403, detail="Cross-workspace access denied")
+
+    finding = db.query(models.Finding).filter(models.Finding.id == finding_id).first()
+    if not finding:
+        raise HTTPException(status_code=404, detail="Finding not found")
+
+    log_audit_event(
+        db=db,
+        workspace_id=current_user.workspace_id,
+        actor_id=current_user.id,
+        action="finding.dismissed",
+        entity="Finding",
+        entity_id=finding.id,
+        payload={
+            "content_id": content.id,
+            "category": finding.category,
+            "rule_code": finding.evidence_id or finding.category,
+            "reason": payload.reason,
+            "span_text": finding.span_text,
+        },
+    )
+
+    return {
+        "status": "dismissed",
+        "finding_id": finding.id,
+        "dismissal_reason": payload.reason,
+    }
+

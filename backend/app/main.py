@@ -24,11 +24,15 @@ from .modules.auth.router import router as auth_router
 from .modules.kb.router import router as kb_router
 from .modules.content.router import router as content_router
 from .modules.audit.router import router as audit_router
+from .modules.vision.router import router as vision_router
+from .modules.insights.router import router as insights_router
 
 app.include_router(auth_router)
 app.include_router(kb_router)
 app.include_router(content_router)
 app.include_router(audit_router)
+app.include_router(vision_router)
+app.include_router(insights_router)
 
 @app.get("/health")
 async def health_check():
