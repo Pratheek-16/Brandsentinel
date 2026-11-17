@@ -1,34 +1,88 @@
-# DISCLOSURES.md
+# Disclosures and Transparency Ledger (`DISCLOSURES.md`)
 
-This project uses the following third‑party libraries (as listed in `requirements.txt`). All licenses are permissive and compatible with the MIT license of BrandSentinel.
+This document discloses all third-party libraries, templates, datasets, AI models, APIs, and AI-assisted development tools used in the development of **BrandSentinel** for the Inkloom AI Brand-Governance Hackathon.
 
-| Library | Version | License |
-|---------|---------|---------|
-| fastapi | 0.111.0 | MIT |
-| uvicorn[standard] | 0.30.0 | BSD-3-Clause |
-| pydantic | 2.7.1 | MIT |
-| SQLAlchemy | 2.0.30 | MIT |
-| alembic | 1.13.2 | MIT |
-| python-dotenv | 1.0.1 | BSD-3-Clause |
-| python-multipart | 0.0.9 | MIT |
-| httpx | 0.27.0 | BSD-3-Clause |
-| cryptography | 43.0.1 | Apache-2.0 |
-| passlib[bcrypt] | 1.7.4 | BSD-2-Clause |
-| argon2-cffi | 23.1.0 | MIT |
-| pytesseract | 0.3.13 | LGPL-3.0 |
-| pdfplumber | 0.11.2 | MIT |
-| python-docx | 1.1.2 | MIT |
-| Pillow | 10.3.0 | HPND |
-| opencv-python | 4.9.0.80 | MIT |
-| scikit-image | 0.24.0 | BSD-3-Clause |
-| presidio-analyzer | 2.2.33 | MIT |
-| presidio-anonymizer | 2.2.33 | MIT |
-| spacy | 3.7.4 | MIT |
-| rapidfuzz | 3.9.5 | MIT |
-| textstat | 0.7.3 | MIT |
-| sentence-transformers | 2.7.0 | Apache-2.0 |
-| numpy | 2.0.0 | BSD-3-Clause |
-| scipy | 1.14.0 | BSD-3-Clause |
-| google-generativeai | 0.7.0 | Apache-2.0 |
+---
 
-All dependencies are installed via `pip install -r requirements.txt`. The licenses listed above are obtained from the package metadata on PyPI.
+## 1. AI Assistance and Pair-Programming
+
+- **AI Pair-Programmer:** Antigravity (Google DeepMind)
+- **Role:** Sole pair-programming partner for participant **Pratheek (Team of One)**.
+- **Scope:** Co-authoring system design, writing backend FastAPI modules, frontend React components, deterministic rule sets, test harnesses, benchmark suites, and documentation within the official build window.
+- **Supervision & Human Control:** Every algorithmic design decision, code commit, test run, and benchmark execution was reviewed, tested, and validated by the human participant.
+
+---
+
+## 2. Artificial Intelligence Models & Providers
+
+| Model / Service | Provider | Purpose | Status in Local Run |
+| :--- | :--- | :--- | :--- |
+| **Gemini 1.5 Pro / Flash** | Google DeepMind | Structured brand governance finding extraction and claim reasoning | Activated when `GEMINI_API_KEY` is provided in `.env` |
+| **MockProvider** | BrandSentinel Engine | Deterministic, offline rule-based extraction, grounding, and suggestion engine | Default fallback when `GEMINI_API_KEY` is unset; labeled in UI & AI usage ledger |
+| **Vector Store (In-Memory)** | BrandSentinel Engine | Dense semantic retrieval using cosine similarity and cached embeddings | Native, zero-network fallback |
+
+---
+
+## 3. Benchmark Datasets & Brand Data
+
+- **BrandBench v1.0:** 150 labelled content cases covering all six governance categories (`tone`, `terminology`, `messaging`, `claim`, `accessibility`, `clean`, `injection`).
+- **Brand Kits:** 100% fictional brand identities created specifically for BrandSentinel:
+  1. **NovaFit** (Health & Fitness Wearable / Nutrition)
+  2. **Lumen Bank** (Regulated Retail & Commercial Fintech)
+  3. **Aster University** (Higher Education & Research Institution)
+- **Confidentiality:** **Zero real, proprietary, or scraped corporate data** is used. All entities, claims, and regulatory statements are synthetic.
+
+---
+
+## 4. Backend Dependencies (`backend/requirements.txt`)
+
+All backend libraries use permissive, commercial-friendly open-source licenses compatible with the project's **MIT License**:
+
+| Library | Version | License | Purpose |
+| :--- | :--- | :--- | :--- |
+| `fastapi` | 0.111.0 | MIT | Core REST API framework |
+| `uvicorn[standard]` | 0.30.0 | BSD-3-Clause | ASGI production HTTP server |
+| `pydantic` | 2.7.1 | MIT | Schema validation and settings management |
+| `pydantic-settings` | 2.16.3 | MIT | Environment variable loading |
+| `SQLAlchemy` | 2.0.30 | MIT | Relational ORM & database abstractions |
+| `alembic` | 1.13.2 | MIT | Database migrations |
+| `python-dotenv` | 1.0.1 | BSD-3-Clause | Environment configuration |
+| `python-multipart` | 0.0.9 | Apache-2.0 | Multipart form & file upload parsing |
+| `httpx` | 0.27.0 | BSD-3-Clause | HTTP client for integration testing |
+| `cryptography` | 43.0.1 | Apache-2.0 | SHA-256 hash chaining and digital signatures |
+| `passlib[bcrypt]` | 1.7.4 | BSD-2-Clause | Password hashing abstractions |
+| `argon2-cffi` | 23.1.0 | MIT | High-security Argon2id password hashing |
+| `pytesseract` | 0.3.13 | Apache-2.0 | OCR extraction (degrades gracefully if binary missing) |
+| `pdfplumber` | 0.11.2 | MIT | PDF text extraction |
+| `python-docx` | 1.1.2 | MIT | DOCX text extraction |
+| `Pillow` | 10.3.0 | HPND | Image manipulation and color sampling |
+| `opencv-python` | 4.9.0.80 | Apache-2.0 | Image and computer vision processing |
+| `scikit-image` | 0.24.0 | BSD-3-Clause | Image quality and color analysis |
+| `rapidfuzz` | 3.9.5 | MIT | Fuzzy string matching for rule atomisation |
+| `textstat` | 0.7.3 | MIT | Readability and linguistic metrics |
+| `numpy` | 2.0.0 | BSD-3-Clause | Vector mathematics and ΔE calculation |
+| `scipy` | 1.14.0 | BSD-3-Clause | Color space conversions and statistical metrics |
+| `google-generativeai` | 0.7.0 | Apache-2.0 | Google Gemini SDK |
+| `pytest` | 8.2.2 | MIT | Automated test framework |
+| `pytest-asyncio` | 0.23.7 | Apache-2.0 | Asynchronous test execution |
+
+---
+
+## 5. Frontend Dependencies (`frontend/package.json`)
+
+| Package | Version | License | Purpose |
+| :--- | :--- | :--- | :--- |
+| `react` | 18.3.1 | MIT | Declarative UI framework |
+| `react-dom` | 18.3.1 | MIT | React DOM renderer |
+| `lucide-react` | 0.395.0 | ISC | Accessible UI iconography |
+| `vite` | 5.2.0 | MIT | Modern frontend bundler and dev server |
+| `tailwindcss` | 3.4.3 | MIT | Utility-first CSS styling |
+| `postcss` | 8.4.38 | MIT | CSS transformations |
+| `autoprefixer` | 10.4.19 | MIT | CSS vendor prefixing |
+| `typescript` | 5.2.2 | Apache-2.0 | Type safety |
+
+---
+
+## 6. Templates and Scaffolding
+
+- **Templates:** None. All application architectures, database models, frontend interfaces, state machines, and hash-chain algorithms were authored specifically for this project from clean files.
