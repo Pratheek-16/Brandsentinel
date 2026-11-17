@@ -1,15 +1,16 @@
 """AI provider factory – selects provider based on environment variables.
-If GEMINI_API_KEY is empty, returns MockProvider; otherwise returns GeminiProvider (placeholder).
+If GEMINI_API_KEY is empty, returns deterministic MockProvider with 'AI provider: mock' ledger.
+If GEMINI_API_KEY is present, initializes and returns GeminiProvider.
 """
 
-import os
 from .mock import MockProvider
-# Placeholder for real Gemini provider – not implemented to avoid external calls
+from .gemini import GeminiProvider
 
 def get_provider():
     from ...core.config import settings
-    if settings.gemini_api_key:
-        # In a real implementation, you'd import and init GeminiProvider here.
-        # For now we fallback to MockProvider to keep the app runnable offline.
-        return MockProvider()
+    if settings.gemini_api_key and settings.gemini_api_key.strip():
+        try:
+            return GeminiProvider(api_key=settings.gemini_api_key.strip(), model_name=settings.llm_model)
+        except Exception:
+            return MockProvider()
     return MockProvider()

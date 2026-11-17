@@ -307,3 +307,48 @@ def approve_content(
         "decision": approval.decision,
         "signature_hash": approval.signature_hash,
     }
+
+@router.get("/{content_id}/claims")
+def get_claim_ledger(
+    content_id: int,
+    db: Session = Depends(session.get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    content = db.query(models.Content).filter(models.Content.id == content_id).first()
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+    if content.workspace_id != current_user.workspace_id:
+        raise HTTPException(status_code=403, detail="Cross-workspace access denied")
+
+    version = (
+        db.query(models.ContentVersion)
+        .filter(models.ContentVersion.id == content.current_version_id)
+        .first()
+    )
+    if not version:
+        raise HTTPException(status_code=404, detail="Version not found")
+
+    # Get active KB claims
+    kb = (
+        db.query(models.KBVersion)
+        .filter(models.KBVersion.workspace_id == content.workspace_id, models.KBVersion.is_active == True)
+        .first()
+    )
+    active_claims = (
+        db.query(models.Claim).filter(models.Claim.kb_version_id == kb.id).all() if kb else []
+    )
+
+    from ..claims.ledger import evaluate_claims
+    ledger = evaluate_claims(version.text_body or "", active_claims)
+
+    return {
+        "content_id": content.id,
+        "version_id": version.id,
+        "total_claims": len(ledger),
+        "approved_count": sum(1 for c in ledger if c["status"] == "approved"),
+        "missing_disclaimer_count": sum(1 for c in ledger if c["status"] == "missing_disclaimer"),
+        "expired_count": sum(1 for c in ledger if c["status"] == "expired"),
+        "unsupported_count": sum(1 for c in ledger if c["status"] == "unsupported"),
+        "claims": ledger,
+    }
+
