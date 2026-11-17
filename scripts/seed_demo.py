@@ -21,7 +21,7 @@ def seed_demo_data(db: Session):
             (f"creator2@{brand}.local", "creator"),
         ]
         for email, role in users:
-            pwd_hash = "$2b$12$examplehashplaceholder"  # placeholder; real hash not needed for demo
+            pwd_hash = hash_password("Demo@12345")
             user = models.User(
                 workspace_id=workspace.id,
                 email=email,

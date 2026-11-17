@@ -20,11 +20,13 @@ app.add_middleware(
 async def startup():
     models.Base.metadata.create_all(bind=session.engine)
 
-# Include routers
-from .routers import auth, kb, content
-app.include_router(auth.router)
-app.include_router(kb.router)
-app.include_router(content.router)
+from .modules.auth.router import router as auth_router
+from .modules.kb.router import router as kb_router
+from .modules.content.router import router as content_router
+
+app.include_router(auth_router)
+app.include_router(kb_router)
+app.include_router(content_router)
 
 @app.get("/health")
 async def health_check():

@@ -4,10 +4,13 @@ from typing import Optional
 
 from passlib.context import CryptContext
 import jwt
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from ..core.config import settings
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+security_scheme = HTTPBearer(auto_error=False)
 
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
@@ -32,8 +35,22 @@ def decode_access_token(token: str) -> dict:
     except jwt.PyJWTError:
         return {}
 
-def get_current_user(token: str = ""):
-    # FastAPI dependency placeholder – actual implementation later
-    payload = decode_access_token(token)
+def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_scheme)) -> int:
+    if not credentials or not credentials.credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid authorization header",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    payload = decode_access_token(credentials.credentials)
     user_id = payload.get("sub")
-    return user_id
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    try:
+        return int(user_id)
+    except (ValueError, TypeError):
+        return user_id
