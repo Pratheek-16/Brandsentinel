@@ -101,15 +101,17 @@ def upgrade():
         sa.Column('signature_hash', sa.String(), nullable=False),
         sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('ai_usage',
+    op.create_table('ai_usages',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('review_run_id', sa.Integer(), nullable=False),
         sa.Column('provider', sa.String(), nullable=False),
         sa.Column('model', sa.String(), nullable=False),
         sa.Column('purpose', sa.String(), nullable=False),
         sa.Column('segments_sent', sa.Integer(), nullable=False),
+        sa.Column('segments_received', sa.Integer(), nullable=False, default=0),
         sa.Column('redacted_fields', sa.JSON(), nullable=True),
-        sa.Column('timestamp', sa.DateTime(), nullable=False),
+        sa.Column('redaction_count', sa.Integer(), nullable=False, default=0),
+        sa.Column('created_at', sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint('id')
     )
     op.create_table('audit_events',
@@ -140,7 +142,7 @@ def upgrade():
 def downgrade():
     op.drop_table('jobs')
     op.drop_table('audit_events')
-    op.drop_table('ai_usage')
+    op.drop_table('ai_usages')
     op.drop_table('approvals')
     op.drop_table('comments')
     op.drop_table('risk_rules')
