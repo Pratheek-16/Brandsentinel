@@ -1,23 +1,28 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .core.config import settings
 from .db import models, session
 
-app = FastAPI(title="BrandSentinel API", version="0.1.0")
+app = FastAPI(
+    title="BrandSentinel API",
+    version="1.0.0",
+    description="Evidence-grounded, human-controlled pre-publication brand-governance platform",
+)
 
-# CORS (frontend runs on localhost:5173)
+# Explicit CORS origins for development and production (no wildcard '*')
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust in production
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Create tables on startup for SQLite fallback
 @app.on_event("startup")
 async def startup():
+    os.makedirs(settings.upload_dir, exist_ok=True)
     models.Base.metadata.create_all(bind=session.engine)
 
 from .modules.auth.router import router as auth_router
