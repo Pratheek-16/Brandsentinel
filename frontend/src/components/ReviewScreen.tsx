@@ -469,13 +469,28 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
           </button>
 
           {currentUser?.role === 'creator' && (
-            <button
-              onClick={handleSubmitForReview}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors flex items-center space-x-1.5"
-            >
-              <Send className="w-3.5 h-3.5" />
-              <span>Submit for Approval</span>
-            </button>
+            content.status === 'draft' || content.status === 'ai_checked' || content.status === 'changes_requested' ? (
+              <button
+                onClick={handleSubmitForReview}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors flex items-center space-x-1.5"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Submit for Approval</span>
+              </button>
+            ) : (
+              <div className="px-3.5 py-2 bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg border border-slate-300 flex items-center space-x-1.5">
+                <Clock className="w-3.5 h-3.5 text-blue-600" />
+                <span>
+                  {content.status === 'manager_review'
+                    ? 'Awaiting Manager Review'
+                    : content.status === 'escalated'
+                    ? 'Awaiting Reviewer Sign-off'
+                    : content.status === 'approved'
+                    ? 'Content Approved & Signed'
+                    : 'In Review Queue'}
+                </span>
+              </div>
+            )
           )}
 
           {(currentUser?.role === 'manager' ||

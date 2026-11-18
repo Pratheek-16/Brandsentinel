@@ -7,6 +7,8 @@ BANNED_TERMS = {
     "nova watch": {"preferred": "NovaBand Pro", "rule": "NF-TERM-01", "cat": "terminology"},
     "nova tracker": {"preferred": "NovaBand Pro", "rule": "NF-TERM-01", "cat": "terminology"},
     "fat burner watch": {"preferred": "NovaBand Pro", "rule": "NF-TERM-01", "cat": "terminology"},
+    "cheapest fitness tracker": {"preferred": "NovaBand Pro", "rule": "NF-TERM-01", "cat": "terminology"},
+    "free forever": {"preferred": "complimentary trial", "rule": "NF-PRICE-01", "cat": "messaging"},
     "pulse algorithm": {"preferred": "FitPulse Engine", "rule": "NF-TERM-01", "cat": "terminology"},
     "heart track": {"preferred": "FitPulse Engine", "rule": "NF-TERM-01", "cat": "terminology"},
     # Lumen Bank
@@ -40,7 +42,7 @@ TONE_PATTERNS = [
 ]
 
 CLAIM_PATTERNS = [
-    (r"\b(guaranteed\w*|cure\w*|100% safe|guaranteed to burn|cure metabolic syndrome|eliminate heart disease|melt fat cells|guaranteed instant six-pack|100% cure)\b", "NF-CLAIM-01", "Prohibited medical or unconditional guarantee claim.", "unsupported", "Remove unconditional or unapproved health guarantee."),
+    (r"\b(guarantee\w*|cure\w*|100% safe|lose \d+\s*(?:lbs|pounds)|guaranteed to burn|cure metabolic syndrome|eliminate heart disease|melt fat cells|guaranteed instant six-pack|100% cure)\b", "NF-CLAIM-01", "Prohibited medical or unconditional guarantee claim.", "unsupported", "Remove unconditional or unapproved health guarantee."),
     (r"\b(guaranteed zero risk|double your wealth|no chance of loss|guaranteed 0% interest|risk-free equity|guaranteed 15% fixed|unconditionally without limit)\b", "LB-REG-01", "Unsubstantiated risk-free investment or lending claim.", "unsupported", "Qualify investment risks and state market volatility disclaimers."),
     (r"\b(ranked #1 in the universe|guaranteed immediate employment|100% of aster alumni earn|more nobel laureates than all|best university in human history)\b", "AU-TONE-01", "Unverified or hyperbolic institutional ranking claim.", "unsupported", "Cite verified registrar or national survey rankings.")
 ]
