@@ -186,6 +186,11 @@ class Finding(Base):
     reason = Column(Text, nullable=False)
     suggestion_text = Column(Text, nullable=True)
     claim_status = Column(String, default="n/a")
+    status = Column(String, default="open", nullable=False)  # open | accepted | edited | dismissed
+    selected_replacement = Column(Text, nullable=True)
+    decided_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    decided_at = Column(DateTime, nullable=True)
+    dismissal_reason = Column(Text, nullable=True)
 
 class AIUsage(Base):
     __tablename__ = "ai_usages"

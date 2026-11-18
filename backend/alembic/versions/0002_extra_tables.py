@@ -1,6 +1,5 @@
 from alembic import op
 import sqlalchemy as sa
-import sqlalchemy_utils
 
 # revision identifiers, used by Alembic.
 revision = '0002_extra_tables'
