@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: brandsentinel
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: SEED_DEMO
+        value: "true"
+      - key: LLM_MODEL
+        value: mock

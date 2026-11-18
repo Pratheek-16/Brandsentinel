@@ -16,7 +16,11 @@ import {
   ReviewResponse,
 } from './types';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE =
+  (import.meta as any).env?.VITE_API_BASE_URL?.replace(/\/$/, '') ||
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:8000'
+    : window.location.origin);
 
 function getAuthHeaders(): HeadersInit {
   const token = localStorage.getItem('token');

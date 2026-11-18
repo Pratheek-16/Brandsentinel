@@ -57,3 +57,6 @@ node_modules/
 dist/
 uploads/
 .pytest_cache/
+
+# Render and deployment
+.render/
