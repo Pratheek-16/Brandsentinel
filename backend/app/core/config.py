@@ -11,14 +11,20 @@ class Settings(BaseSettings):
     environment: str = os.getenv("ENVIRONMENT", "development")
 
     # CORS settings (explicit development and production origins, no wildcard)
-    cors_origins: List[str] = [
-        origin.strip()
-        for origin in os.getenv(
-            "CORS_ORIGINS",
-            "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000",
-        ).split(",")
-        if origin.strip()
-    ]
+    cors_origins: List[str] = list(
+        dict.fromkeys(
+            origin.strip()
+            for origin in (
+                os.getenv(
+                    "CORS_ORIGINS",
+                    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000",
+                )
+                + ",https://brandsentinel-f5j8.onrender.com"
+                + ("," + os.getenv("RENDER_EXTERNAL_URL", "") if os.getenv("RENDER_EXTERNAL_URL") else "")
+            ).split(",")
+            if origin.strip()
+        )
+    )
 
     # Uploads settings
     upload_dir: str = os.getenv("UPLOAD_DIR", "uploads")

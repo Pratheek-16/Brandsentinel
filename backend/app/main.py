@@ -26,6 +26,13 @@ app.add_middleware(
 async def startup():
     os.makedirs(settings.upload_dir, exist_ok=True)
     models.Base.metadata.create_all(bind=session.engine)
+    if settings.seed_demo:
+        db = session.SessionLocal()
+        try:
+            from scripts.seed_demo import seed_demo_data
+            seed_demo_data(db)
+        finally:
+            db.close()
 
 from .modules.auth.router import router as auth_router
 from .modules.kb.router import router as kb_router
