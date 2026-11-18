@@ -90,8 +90,8 @@ python scripts/seed_demo.py
 ### 3. Start the Backend API Server
 
 ```powershell
-# Windows & Linux/macOS
-uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
+# Windows (PowerShell) & Linux/macOS
+python -m uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 - Interactive API Docs (Swagger): [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 - API Health Status: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
