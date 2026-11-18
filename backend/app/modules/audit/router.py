@@ -31,6 +31,8 @@ def verify_audit_log(
     return {
         "workspace_id": current_user.workspace_id,
         "is_valid": is_valid,
+        "verified": is_valid,
         "total_events": count,
+        "chain_length": count,
         "details": details,
     }
