@@ -28,6 +28,8 @@ def normalize_database_url(database_url: str) -> str:
         return database_url
 
     username, password = authority.split(":", 1)
+    if "%" in password:
+        return database_url
     normalized_authority = f"{username}:{quote(password, safe='')}@{rest}"
     return f"{scheme}://{normalized_authority}"
 
