@@ -151,7 +151,7 @@ BrandSentinel is designed to run seamlessly with or without an external AI API k
 
 ## Running the Automated Test Suite
 
-BrandSentinel features a 20-test automated suite covering data models, migrations, RBAC, workspace isolation, the no-self-approval rule, state machine transitions, redaction, and all three improvements:
+BrandSentinel features a 26-test automated suite covering data models, migrations, RBAC, workspace isolation, the no-self-approval rule, state machine transitions, redaction, and all three improvements:
 
 ```powershell
 python -m pytest backend/tests -v
