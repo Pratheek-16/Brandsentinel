@@ -1,6 +1,6 @@
 # BrandSentinel Benchmark Evaluation Report (BrandBench)
 
-**Evaluation Run Timestamp:** 2026-11-18 15:16:57 UTC  
+**Evaluation Run Timestamp:** 2026-11-18 16:12:58 UTC  
 **Total Test Cases Evaluated:** 150 items  
 **Benchmark Suite:** BrandBench v1.0 (Fictional Brands: NovaFit, Lumen Bank, Aster University)  
 **Execution Environment:** Python 3.11 / Windows x64 / SQLite & Vector Store  
@@ -20,12 +20,12 @@ BrandSentinel was evaluated against **150 systematically curated and labelled te
 | **F1-Score** | $\ge 0.90$ | **1.0000** | PASS |
 | **Overall Accuracy** | $\ge 92.0\%$ | **100.00%** | PASS |
 | **Suggestion Verification Pass Rate** | $\ge 85.0\%$ | **100.00%** | PASS |
-| **Latency (p50 Median)** | $< 100\text{ ms}$ | **0.17 ms** | PASS |
-| **Latency (p90 Percentile)** | $< 250\text{ ms}$ | **0.30 ms** | PASS |
-| **Latency (p99 Percentile)** | $< 500\text{ ms}$ | **3.50 ms** | PASS |
+| **Latency (p50 Median)** | $< 100\text{ ms}$ | **0.12 ms** | PASS |
+| **Latency (p90 Percentile)** | $< 250\text{ ms}$ | **0.20 ms** | PASS |
+| **Latency (p99 Percentile)** | $< 500\text{ ms}$ | **0.28 ms** | PASS |
 | **Adversarial Injection Defense** | $100\%$ | **100.0% (10/10 blocked)** | PASS |
 
-*Total Benchmark Execution Time:* 0.04 seconds across 150 items.
+*Total Benchmark Execution Time:* 0.02 seconds across 150 items.
 
 ---
 
@@ -42,13 +42,13 @@ BrandSentinel was evaluated against **150 systematically curated and labelled te
 
 | Category | Total Cases | True Positives | False Positives | False Negatives | True Negatives | Accuracy | Mean Latency |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Tone** | 25 | 25 | 0 | 0 | 0 | 100.0% | 0.31 ms |
-| **Terminology** | 25 | 25 | 0 | 0 | 0 | 100.0% | 0.52 ms |
-| **Messaging** | 25 | 25 | 0 | 0 | 0 | 100.0% | 0.18 ms |
-| **Claim** | 20 | 20 | 0 | 0 | 0 | 100.0% | 0.17 ms |
-| **Accessibility** | 20 | 20 | 0 | 0 | 0 | 100.0% | 0.16 ms |
-| **Clean** | 25 | 0 | 0 | 0 | 25 | 100.0% | 0.12 ms |
-| **Injection** | 10 | 10 | 0 | 0 | 0 | 100.0% | 0.28 ms |
+| **Tone** | 25 | 25 | 0 | 0 | 0 | 100.0% | 0.27 ms |
+| **Terminology** | 25 | 25 | 0 | 0 | 0 | 100.0% | 0.14 ms |
+| **Messaging** | 25 | 25 | 0 | 0 | 0 | 100.0% | 0.12 ms |
+| **Claim** | 20 | 20 | 0 | 0 | 0 | 100.0% | 0.13 ms |
+| **Accessibility** | 20 | 20 | 0 | 0 | 0 | 100.0% | 0.14 ms |
+| **Clean** | 25 | 0 | 0 | 0 | 25 | 100.0% | 0.06 ms |
+| **Injection** | 10 | 10 | 0 | 0 | 0 | 100.0% | 0.21 ms |
 
 ---
 
@@ -62,13 +62,13 @@ Measured latency encompasses the entire multi-stage pipeline:
 
 | Percentile | Latency (ms) |
 | :--- | :--- |
-| **Min** | 0.07 ms |
-| **P50 (Median)** | 0.17 ms |
-| **P90** | 0.30 ms |
-| **P95** | 0.40 ms |
-| **P99** | 3.50 ms |
-| **Max** | 3.91 ms |
-| **Mean** | 0.25 ms |
+| **Min** | 0.05 ms |
+| **P50 (Median)** | 0.12 ms |
+| **P90** | 0.20 ms |
+| **P95** | 0.23 ms |
+| **P99** | 0.28 ms |
+| **Max** | 3.32 ms |
+| **Mean** | 0.15 ms |
 
 ---
 
