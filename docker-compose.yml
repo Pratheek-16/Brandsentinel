@@ -7,7 +7,8 @@
         "dockerfile": "Dockerfile"
       },
       "ports": ["8000:8000"],
-      "environment": ["DATABASE_URL=postgresql+psycopg2://postgres:postgres@postgres:5432/brandsentinel"],
+      "env_file": [".env"],
+      "environment": ["LLM_MODEL=mock", "SEED_DEMO=true"],
       "depends_on": ["postgres"]
     },
     "postgres": {

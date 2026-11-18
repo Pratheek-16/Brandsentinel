@@ -4,12 +4,12 @@ If GEMINI_API_KEY is present, initializes and returns GeminiProvider.
 """
 
 from .mock import MockProvider
-from .gemini import GeminiProvider
 
 def get_provider():
     from ...core.config import settings
     if settings.gemini_api_key and settings.gemini_api_key.strip():
         try:
+            from .gemini import GeminiProvider
             return GeminiProvider(api_key=settings.gemini_api_key.strip(), model_name=settings.llm_model)
         except Exception:
             return MockProvider()
