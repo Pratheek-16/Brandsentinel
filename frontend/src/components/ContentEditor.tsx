@@ -1,42 +1,119 @@
-import React, { useState } from 'react';
-import { FileText, Upload, Sparkles, Send, AlertCircle, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import {
+  FileText,
+  Upload,
+  Sparkles,
+  Send,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  Layers,
+  FileSearch,
+  ExternalLink,
+} from 'lucide-react';
 import { api } from '../api';
+import { ContentItem } from '../types';
 
 interface ContentEditorProps {
   onReviewCreated: (contentId: number) => void;
+  brand: string;
 }
 
-export const ContentEditor: React.FC<ContentEditorProps> = ({ onReviewCreated }) => {
+export const ContentEditor: React.FC<ContentEditorProps> = ({
+  onReviewCreated,
+  brand,
+}) => {
   const [title, setTitle] = useState('');
   const [channel, setChannel] = useState('social');
   const [contentType, setContentType] = useState('text');
   const [bodyText, setBodyText] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [reviewStage, setReviewStage] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [existingDrafts, setExistingDrafts] = useState<ContentItem[]>([]);
+  const [loadingDrafts, setLoadingDrafts] = useState(false);
 
-  const sampleCopies = [
-    {
-      label: 'Sample with Brand Issues',
-      title: 'Q2 Promo Campaign',
-      body: 'Reach out to support@novafit.local or call 555-019-2831. We promise 100% satisfaction guaranteed! Try the cheapest fitness tracker today for free forever.',
-    },
-    {
-      label: 'Sample Clean Compliant',
-      title: 'Spring Member Welcome',
-      body: 'Welcome to NovaFit. Our premier training programs are designed to support your wellness journey with certified coaches. Terms apply.',
-    },
-  ];
+  // Brand-tailored realistic samples
+  const brandSamples: Record<string, Array<{ label: string; title: string; channel: string; body: string }>> = {
+    NovaFit: [
+      {
+        label: 'Promotional Ad with Health Claim & PII',
+        title: 'NovaFit Summer Blast Campaign',
+        channel: 'social',
+        body: 'Reach out to support@novafit.local or call 555-019-2831. We guarantee you will lose 20 lbs in 14 days without dieting or exercise! Try the cheapest fitness tracker today for free forever with NovaFit.',
+      },
+      {
+        label: 'Approved Certified Coach Announcement',
+        title: 'Spring Member Wellness Series',
+        channel: 'email',
+        body: 'Welcome to NovaFit. Our elite wellness programs are crafted to support your healthy lifestyle with certified coaches. Terms and conditions apply.',
+      },
+    ],
+    'Lumen Bank': [
+      {
+        label: 'High-Yield Savings Promo (Missing Disclaimer)',
+        title: 'Lumen High-Yield Account Launch',
+        channel: 'website',
+        body: 'Earn an unprecedented 7.5% APY with Lumen Bank high-yield savings! Guaranteed 100% risk-free returns on all deposits up to $500,000. Contact private-wealth@lumenbank.local for exclusive access.',
+      },
+      {
+        label: 'Compliant FDIC Statement',
+        title: 'Lumen Secure Banking Update',
+        channel: 'email',
+        body: 'Lumen Bank is dedicated to protecting your assets. Member FDIC. Loans subject to credit approval and underwriting guidelines.',
+      },
+    ],
+    'Aster University': [
+      {
+        label: 'Admissions Campaign (Outdated Tuition Fact)',
+        title: 'Fall 2026 Undergraduate Admissions',
+        channel: 'social',
+        body: 'Join Aster University this autumn. Tuition is only $12,500 per semester with 100% job placement guaranteed upon graduation. Drop a line to dean@aster.local or visit our campus.',
+      },
+      {
+        label: 'Formal Faculty Welcome',
+        title: 'Aster Academic Convocation',
+        channel: 'website',
+        body: 'Aster University warmly welcomes our incoming cohort. Grounded in a tradition of scholarly rigor, we empower students to lead with purpose and inquiry.',
+      },
+    ],
+  };
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const currentSamples = brandSamples[brand] || brandSamples['NovaFit'];
+
+  const loadDrafts = async () => {
+    try {
+      setLoadingDrafts(true);
+      const list = await api.listContents();
+      setExistingDrafts(list || []);
+    } catch (err) {
+      console.warn('Could not load drafts:', err);
+    } finally {
+      setLoadingDrafts(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDrafts();
+  }, [brand]);
+
+  // Reading metrics
+  const wordCount = bodyText.trim() ? bodyText.trim().split(/\s+/).length : 0;
+  const charCount = bodyText.length;
+  const readTimeMin = Math.ceil(wordCount / 200);
+
+  const handleCreateAndReview = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setStatusMsg(null);
+    setReviewStage('Sanitizing and redacting sensitive PII/secrets...');
+
     try {
       let contentId: number;
       if (file) {
         const formData = new FormData();
-        formData.append('title', title || 'Uploaded Document');
+        formData.append('title', title || file.name);
         formData.append('type', contentType);
         formData.append('channel', channel);
         formData.append('file', file);
@@ -45,7 +122,7 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({ onReviewCreated })
       } else {
         if (!bodyText.trim()) throw new Error('Please enter draft copy text.');
         const res = await api.createContent({
-          title: title || 'Draft Content',
+          title: title || `${brand} Draft Campaign`,
           type: 'text',
           channel,
           body: bodyText,
@@ -53,39 +130,56 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({ onReviewCreated })
         contentId = res.content_id;
       }
 
-      setStatusMsg({ type: 'success', text: `Draft created (ID: ${contentId}). Initiating AI Brand Review...` });
-
-      // Automatically trigger AI review
+      setReviewStage('Executing deterministic checks and grounding verification...');
       await api.reviewContent(contentId);
-      onReviewCreated(contentId);
+
+      setStatusMsg({
+        type: 'success',
+        text: `Draft created & AI Review completed (ID: ${contentId}). Opening review console...`,
+      });
+
+      await loadDrafts();
+      setTimeout(() => {
+        onReviewCreated(contentId);
+      }, 600);
     } catch (err: any) {
-      setStatusMsg({ type: 'error', text: err.message || 'Failed to submit content' });
+      setStatusMsg({ type: 'error', text: err.message || 'Submission failed' });
     } finally {
       setLoading(false);
+      setReviewStage(null);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6">
+    <div className="max-w-6xl mx-auto py-8 px-4 sm:px-6 space-y-8">
+      {/* Drafting Panel */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-6 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+        <div className="p-6 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Create & Submit Content</h1>
+            <h1 className="text-xl font-bold text-slate-900 flex items-center space-x-2">
+              <FileText className="w-5 h-5 text-blue-600" />
+              <span>Drafting & Pre-Publication Screening</span>
+            </h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              Draft or upload materials. Content is pre-screened with PII redaction and checked against brand guidelines.
+              Draft or upload copy for <span className="font-semibold text-slate-700">{brand}</span>. PII is automatically redacted before AI evaluation.
             </p>
           </div>
-          <div className="flex space-x-2">
-            {sampleCopies.map((s) => (
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-1">
+              Test Presets:
+            </span>
+            {currentSamples.map((s) => (
               <button
                 key={s.label}
                 type="button"
                 onClick={() => {
                   setTitle(s.title);
+                  setChannel(s.channel);
                   setBodyText(s.body);
                   setFile(null);
                 }}
-                className="text-xs px-2.5 py-1 bg-white border border-slate-300 rounded hover:bg-slate-100 text-slate-700 font-medium transition-colors"
+                className="text-xs px-2.5 py-1 bg-white border border-slate-300 rounded hover:bg-slate-100 text-slate-700 font-medium transition-colors shadow-2xs"
               >
                 {s.label}
               </button>
@@ -95,19 +189,25 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({ onReviewCreated })
 
         {statusMsg && (
           <div
-            className={`p-4 flex items-center space-x-2 text-xs font-medium ${
-              statusMsg.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-b border-emerald-200' : 'bg-red-50 text-red-800 border-b border-red-200'
+            className={`p-4 flex items-center space-x-2 text-xs font-semibold ${
+              statusMsg.type === 'success'
+                ? 'bg-emerald-50 text-emerald-900 border-b border-emerald-200'
+                : 'bg-red-50 text-red-900 border-b border-red-200'
             }`}
           >
-            {statusMsg.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+            {statusMsg.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+            ) : (
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+            )}
             <span>{statusMsg.text}</span>
           </div>
         )}
 
-        <form onSubmit={handleCreate} className="p-6 space-y-6">
+        <form onSubmit={handleCreateAndReview} className="p-6 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2">
-              <label htmlFor="content-title" className="block text-xs font-bold text-slate-700 uppercase mb-1">
+              <label htmlFor="content-title" className="block text-xs font-bold uppercase text-slate-700 mb-1">
                 Campaign / Document Title
               </label>
               <input
@@ -116,37 +216,47 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({ onReviewCreated })
                 required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Summer Health Launch - Email Newsletter"
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                placeholder="e.g. Q3 Launch Announcement"
+                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
               />
             </div>
 
             <div>
-              <label htmlFor="channel-select" className="block text-xs font-bold text-slate-700 uppercase mb-1">
+              <label htmlFor="channel-select" className="block text-xs font-bold uppercase text-slate-700 mb-1">
                 Distribution Channel
               </label>
               <select
                 id="channel-select"
                 value={channel}
                 onChange={(e) => setChannel(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white"
+                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white"
               >
-                <option value="social">Social Media</option>
-                <option value="email">Email Campaign</option>
-                <option value="website">Website / Blog</option>
-                <option value="ad">Digital Advertising</option>
-                <option value="print">Print Collateral</option>
+                <option value="social">Social Media (Instagram/LinkedIn/X)</option>
+                <option value="email">Email Campaign / Newsletter</option>
+                <option value="website">Public Website / Landing Page</option>
+                <option value="ad">Digital Advertising (Search/Display)</option>
+                <option value="print">Print Collateral / Brochure</option>
               </select>
             </div>
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label htmlFor="body-editor" className="block text-xs font-bold text-slate-700 uppercase">
-                Content Body (Plain Text or Pasted Copy)
+            <div className="flex items-center justify-between mb-1.5">
+              <label htmlFor="body-editor" className="block text-xs font-bold uppercase text-slate-700">
+                Draft Content Body
               </label>
-              <span className="text-xs text-slate-400">{bodyText.length} characters</span>
+              <div className="flex items-center space-x-3 text-xs text-slate-400 font-mono">
+                <span>{charCount} chars</span>
+                <span>•</span>
+                <span>{wordCount} words</span>
+                <span>•</span>
+                <span className="flex items-center space-x-1">
+                  <Clock className="w-3 h-3" />
+                  <span>~{readTimeMin} min read</span>
+                </span>
+              </div>
             </div>
+
             <textarea
               id="body-editor"
               rows={8}
@@ -155,19 +265,19 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({ onReviewCreated })
                 setBodyText(e.target.value);
                 if (file) setFile(null);
               }}
-              placeholder="Paste draft copy here to evaluate tone, terminology, facts, claims, and accessibility..."
-              className="w-full p-3 text-sm font-mono border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none leading-relaxed"
+              placeholder={`Paste draft copy to evaluate ${brand} tone, terminology, pricing facts, promotional claims, and accessibility...`}
+              className="w-full p-3.5 text-sm font-mono border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none leading-relaxed bg-slate-50/50"
             />
           </div>
 
           <div className="border-t border-slate-200 pt-4">
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-2">
+            <label className="block text-xs font-bold uppercase text-slate-700 mb-2">
               Or Upload Asset Document (DOCX, PDF, PNG/JPG)
             </label>
             <div className="flex items-center space-x-4">
-              <label className="cursor-pointer flex items-center space-x-2 px-4 py-2 border border-slate-300 rounded-md hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors">
+              <label className="cursor-pointer flex items-center space-x-2 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors shadow-2xs">
                 <Upload className="w-4 h-4 text-slate-500" />
-                <span>Choose File</span>
+                <span>Choose Document File</span>
                 <input
                   type="file"
                   className="hidden"
@@ -185,25 +295,100 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({ onReviewCreated })
                   }}
                 />
               </label>
+
               {file && (
-                <span className="text-xs text-blue-600 font-mono bg-blue-50 px-2.5 py-1 rounded border border-blue-200">
+                <span className="text-xs text-blue-700 font-mono bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200">
                   {file.name} ({(file.size / 1024).toFixed(1)} KB)
                 </span>
               )}
             </div>
           </div>
 
-          <div className="flex justify-end pt-2">
+          <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+            <div className="text-xs text-slate-500 italic">
+              {reviewStage || 'PII redactable: emails, phone numbers, SSNs, and API keys are masked.'}
+            </div>
+
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex items-center space-x-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-md shadow-sm transition-colors disabled:opacity-50"
+              className="inline-flex items-center space-x-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-lg shadow-sm transition-colors disabled:opacity-50"
             >
               <Sparkles className="w-4 h-4" />
-              <span>{loading ? 'Processing & Redacting...' : 'Run AI Brand Review'}</span>
+              <span>{loading ? 'Redacting & Reviewing...' : 'Run Evidence-Grounded Review'}</span>
             </button>
           </div>
         </form>
+      </div>
+
+      {/* Existing Workspace Drafts Queue */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Layers className="w-4 h-4 text-blue-600" />
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800">
+              {brand} Submissions & Review Queue
+            </h2>
+          </div>
+          <span className="text-xs text-slate-400 font-mono">
+            {existingDrafts.length} Documents
+          </span>
+        </div>
+
+        <div className="divide-y divide-slate-100">
+          {loadingDrafts ? (
+            <div className="p-8 text-center text-xs text-slate-400">Loading workspace drafts...</div>
+          ) : existingDrafts.length === 0 ? (
+            <div className="p-8 text-center text-xs text-slate-400">
+              No content submitted in this workspace yet. Create a draft above to begin!
+            </div>
+          ) : (
+            existingDrafts.map((d) => (
+              <div
+                key={d.id}
+                className="p-4 hover:bg-slate-50 transition-colors flex items-center justify-between"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center space-x-3">
+                    <span className="font-semibold text-sm text-slate-900">{d.title}</span>
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono ${
+                        d.status === 'approved'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                          : d.status === 'in_review' || d.status === 'ai_checked'
+                          ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                          : d.status === 'changes_requested'
+                          ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                          : 'bg-slate-100 text-slate-700 border border-slate-300'
+                      }`}
+                    >
+                      {d.status}
+                    </span>
+                    <span className="text-[11px] font-mono text-slate-400">
+                      v{d.version_no || 1}
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-500 flex items-center space-x-3">
+                    <span>Creator: {d.creator_name || d.creator_email || 'Author'}</span>
+                    <span>•</span>
+                    <span>Channel: {d.channel}</span>
+                    <span>•</span>
+                    <span>Type: {d.type}</span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => onReviewCreated(d.id)}
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700 text-xs font-semibold rounded-md border border-slate-300 transition-colors"
+                >
+                  <FileSearch className="w-3.5 h-3.5" />
+                  <span>Inspect Review</span>
+                </button>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );

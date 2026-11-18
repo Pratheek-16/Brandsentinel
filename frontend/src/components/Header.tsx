@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, UserCircle, LogOut, Cpu } from 'lucide-react';
+import { ShieldCheck, UserCircle, LogOut, Cpu, Building2 } from 'lucide-react';
 import { User } from '../types';
 
 interface HeaderProps {
@@ -19,48 +19,79 @@ export const Header: React.FC<HeaderProps> = ({
   currentTab,
   onSelectTab,
 }) => {
+  const getRoleBadge = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return 'bg-purple-900/60 text-purple-300 border-purple-700';
+      case 'reviewer':
+        return 'bg-cyan-900/60 text-cyan-300 border-cyan-700';
+      case 'manager':
+        return 'bg-amber-900/60 text-amber-300 border-amber-700';
+      default:
+        return 'bg-emerald-900/60 text-emerald-300 border-emerald-700';
+    }
+  };
+
+  const navItems = [
+    { id: 'submissions', label: 'Draft Submissions' },
+    { id: 'review', label: 'Review & Approvals' },
+    { id: 'kb', label: 'Brand Knowledge Base' },
+    { id: 'vision', label: 'Visual & Contrast (I-2)' },
+    { id: 'audit', label: 'Cryptographic Audit Trail' },
+    { id: 'insights', label: 'Insights & Ambiguity (I-3)' },
+  ];
+
   return (
     <header className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-50 shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo & Brand */}
+          {/* Logo & Platform Name */}
           <div className="flex items-center space-x-3">
-            <div className="flex items-center justify-center p-2 bg-blue-600 rounded-lg text-white">
-              <ShieldCheck className="w-6 h-6" aria-hidden="true" />
+            <div className="flex items-center justify-center p-2 bg-blue-600 rounded-lg text-white shadow-sm">
+              <ShieldCheck className="w-5 h-5" aria-hidden="true" />
             </div>
             <div>
-              <span className="font-bold text-lg tracking-tight">BrandSentinel</span>
-              <span className="ml-2 text-xs bg-slate-800 text-blue-400 px-2 py-0.5 rounded font-mono">
+              <span className="font-extrabold text-lg tracking-tight text-white">BrandSentinel</span>
+              <span className="ml-2 text-[10px] bg-slate-800 text-blue-400 px-2 py-0.5 rounded font-mono border border-slate-700">
                 v1.0.0
               </span>
             </div>
           </div>
 
-          {/* Brand Switcher & Provider Badge */}
+          {/* Controls: AI Provider, Workspace Selector, User Persona */}
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-1.5 bg-slate-800 px-2.5 py-1 rounded-full text-xs font-mono text-emerald-400 border border-emerald-900">
-              <Cpu className="w-3.5 h-3.5" />
+            <div className="hidden sm:flex items-center space-x-1.5 bg-slate-800 px-3 py-1 rounded-full text-xs font-mono text-emerald-400 border border-emerald-900/80">
+              <Cpu className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
               <span>AI provider: mock</span>
             </div>
 
-            <select
-              value={brand}
-              onChange={(e) => onSelectBrand(e.target.value)}
-              aria-label="Select active brand kit"
-              className="bg-slate-800 text-slate-200 text-xs font-medium rounded-md px-3 py-1.5 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="NovaFit">NovaFit (Health & Fitness)</option>
-              <option value="Lumen Bank">Lumen Bank (Fintech)</option>
-              <option value="Aster University">Aster University (Higher Ed)</option>
-            </select>
+            <div className="flex items-center space-x-1.5 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1">
+              <Building2 className="w-3.5 h-3.5 text-slate-400" />
+              <select
+                value={brand}
+                onChange={(e) => onSelectBrand(e.target.value)}
+                aria-label="Select active brand kit"
+                className="bg-transparent text-slate-200 text-xs font-semibold focus:outline-none cursor-pointer"
+              >
+                <option value="NovaFit" className="bg-slate-900 text-slate-100">NovaFit</option>
+                <option value="Lumen Bank" className="bg-slate-900 text-slate-100">Lumen Bank</option>
+                <option value="Aster University" className="bg-slate-900 text-slate-100">Aster University</option>
+              </select>
+            </div>
 
             {user && (
-              <div className="flex items-center space-x-3 pl-2 border-l border-slate-800">
+              <div className="flex items-center space-x-3 pl-3 border-l border-slate-800">
                 <div className="flex items-center space-x-2">
-                  <UserCircle className="w-5 h-5 text-slate-400" />
-                  <div className="text-left text-xs leading-tight">
-                    <div className="font-semibold text-slate-200">{user.email}</div>
-                    <span className="inline-block text-[10px] uppercase font-bold text-blue-400">
+                  <UserCircle className="w-6 h-6 text-slate-400" />
+                  <div className="text-left text-xs leading-tight hidden md:block">
+                    <div className="font-semibold text-slate-200 truncate max-w-[140px]">
+                      {user.email}
+                    </div>
+                    <span
+                      className={`inline-block text-[10px] uppercase font-bold px-1.5 py-0.2 rounded border ${getRoleBadge(
+                        user.role
+                      )}`}
+                    >
                       {user.role}
                     </span>
                   </div>
@@ -69,7 +100,8 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   onClick={onLogout}
                   aria-label="Log out"
-                  className="p-1.5 text-slate-400 hover:text-red-400 rounded transition-colors"
+                  title="Sign out of console"
+                  className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-md transition-colors"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
@@ -80,21 +112,14 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Navigation Tabs */}
         {user && (
-          <nav className="flex space-x-1 overflow-x-auto pb-1" aria-label="Main Navigation">
-            {[
-              { id: 'submissions', label: 'Draft Submissions' },
-              { id: 'review', label: 'Review & Approvals' },
-              { id: 'kb', label: 'Knowledge Base' },
-              { id: 'vision', label: 'Visual & Contrast (I-2)' },
-              { id: 'audit', label: 'Audit Trail' },
-              { id: 'insights', label: 'Insights & Ambiguity (I-3)' },
-            ].map((tab) => (
+          <nav className="flex space-x-1 overflow-x-auto pb-1 border-t border-slate-800/80 pt-1" aria-label="Main Navigation">
+            {navItems.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => onSelectTab(tab.id)}
-                className={`px-3 py-2 text-xs font-medium rounded-t-md transition-colors border-b-2 whitespace-nowrap ${
+                className={`px-3 py-1.5 text-xs font-semibold rounded-t-md transition-colors border-b-2 whitespace-nowrap ${
                   currentTab === tab.id
-                    ? 'border-blue-500 text-blue-400 bg-slate-800/60'
+                    ? 'border-blue-500 text-blue-400 bg-slate-800/70'
                     : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/30'
                 }`}
               >
