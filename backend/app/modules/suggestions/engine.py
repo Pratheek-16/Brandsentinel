@@ -16,6 +16,8 @@ TERMINOLOGY_REWRITES = {
     "nova watch": ["NovaBand Pro smart fitness tracker", "NovaBand Pro", "NovaBand Pro wearable"],
     "nova tracker": ["NovaBand Pro smart fitness tracker", "NovaBand Pro", "NovaBand Pro sensor"],
     "fat burner watch": ["NovaBand Pro smart fitness tracker", "NovaBand Pro fitness wearable"],
+    "cheapest fitness tracker": ["NovaBand Pro smart fitness tracker", "NovaBand Pro", "NovaBand Pro wearable"],
+    "free forever": ["with a complimentary 30-day trial", "with introductory trial access"],
     "pulse algorithm": ["FitPulse Engine", "FitPulse proprietary biometric engine"],
     "heart track": ["FitPulse Engine", "continuous FitPulse optical sensor"],
     "money doubler": ["Lumen High-Yield Savings Account", "Lumen High-Yield Savings", "Lumen Treasury Account"],
@@ -78,8 +80,12 @@ TONE_REWRITES = {
 
 # Claim compliance rewrites
 CLAIM_REWRITES = {
-    "100% satisfaction guaranteed": "high customer satisfaction backed by dedicated support",
-    "guaranteed": "designed to provide reliable",
+    "100% satisfaction guaranteed": ["high customer satisfaction backed by dedicated support", "trusted quality guaranteed by support"],
+    "guarantee": ["aim to help you", "believe you can", "encourage you to"],
+    "guarantees": ["aims to help you", "believes you can", "encourages you to"],
+    "guaranteed": ["designed to provide reliable", "crafted to offer dependable", "engineered for consistent"],
+    "lose 20 lbs": ["build healthy habits", "track fitness progress", "improve personal fitness"],
+    "lose 20 lbs in 14 days": ["support sustainable fitness milestones", "build lasting daily health routines"],
     "guaranteed to burn": "Clinically proven to help support an active metabolism alongside regular exercise and balanced nutrition",
     "cure metabolic syndrome": "Helps support cardiovascular endurance within 8 weeks. Results may vary based on individual workout intensity and diet",
     "eliminate heart disease": "Supports cardiovascular vitality as part of an active lifestyle",
@@ -143,40 +149,72 @@ def generate_candidate_suggestions(finding: Dict[str, Any], original_text: str) 
     candidates: List[str] = []
 
     # 1. Direct terminology matches
-    for term, rewrites in TERMINOLOGY_REWRITES.items():
-        if term in span_lower:
-            for r in rewrites:
-                if r.lower() != span_lower:
-                    candidates.append(r)
+    matched_term = None
+    for term in TERMINOLOGY_REWRITES:
+        if term == span_lower or term in span_lower:
+            matched_term = term
             break
+    if not matched_term:
+        for term in TERMINOLOGY_REWRITES:
+            if span_lower in term:
+                matched_term = term
+                break
+    if matched_term:
+        for r in TERMINOLOGY_REWRITES[matched_term]:
+            if r.lower() != span_lower:
+                candidates.append(r)
 
     # 2. Tone matches
     if not candidates and category == "tone":
         for trigger, rewrite in TONE_REWRITES.items():
-            if trigger in span_lower:
-                candidates.append(rewrite)
-                # Provide a shorter concise alternative
-                words = rewrite.split()
-                if len(words) > 5:
-                    candidates.append(" ".join(words[:5]) + "...")
+            if trigger in span_lower or span_lower in trigger:
+                if isinstance(rewrite, list):
+                    candidates.extend(rewrite)
+                else:
+                    candidates.append(rewrite)
+                    words = rewrite.split()
+                    if len(words) > 5:
+                        candidates.append(" ".join(words[:5]) + "...")
                 break
 
     # 3. Claim matches & disclaimers
     if not candidates and category == "claim":
-        for trigger, rewrite in CLAIM_REWRITES.items():
-            if trigger in span_lower:
-                candidates.append(rewrite)
+        matched_claim = None
+        for trigger in CLAIM_REWRITES:
+            if trigger == span_lower or trigger in span_lower:
+                matched_claim = trigger
                 break
+        if not matched_claim:
+            for trigger in CLAIM_REWRITES:
+                if span_lower in trigger:
+                    matched_claim = trigger
+                    break
+        if matched_claim:
+            rewrite = CLAIM_REWRITES[matched_claim]
+            if isinstance(rewrite, list):
+                candidates.extend(rewrite)
+            else:
+                candidates.append(rewrite)
+
         for trigger, disclaimer in DISCLAIMER_APPENDS.items():
-            if trigger in span_lower:
+            if trigger in span_lower or span_lower in trigger:
                 candidates.append(span_text + disclaimer)
                 break
+        if not candidates:
+            candidates.extend([
+                "designed to support your wellness goals",
+                "crafted to assist with personal fitness milestones",
+                "engineered for reliable performance",
+            ])
 
     # 4. Messaging & fact corrections
     if not candidates and category == "messaging":
         for trigger, rewrite in MESSAGING_REWRITES.items():
-            if trigger in span_lower:
-                candidates.append(rewrite)
+            if trigger in span_lower or span_lower in trigger:
+                if isinstance(rewrite, list):
+                    candidates.extend(rewrite)
+                else:
+                    candidates.append(rewrite)
                 break
 
     # 5. Accessibility suggestions

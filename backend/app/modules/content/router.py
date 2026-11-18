@@ -41,7 +41,8 @@ class AcceptSuggestionSchema(BaseModel):
     replacement_text: str
 
 class EditSuggestionSchema(BaseModel):
-    custom_text: str
+    custom_text: Optional[str] = None
+    replacement_text: Optional[str] = None
 
 class DismissFindingSchema(BaseModel):
     reason: str
@@ -944,12 +945,16 @@ def edit_finding_suggestion(
     )
     old_text = curr_version.text_body or ""
 
+    replacement = (payload.custom_text or payload.replacement_text or "").strip()
+    if not replacement:
+        raise HTTPException(status_code=400, detail="Replacement text cannot be empty.")
+
     f_dict = {
         "category": finding.category,
         "severity": finding.severity,
         "span": {"start": finding.span_start, "end": finding.span_end, "text": finding.span_text},
     }
-    is_valid, reason, _ = verify_suggestion(old_text, f_dict, payload.custom_text)
+    is_valid, reason, _ = verify_suggestion(old_text, f_dict, replacement)
     if not is_valid:
         raise HTTPException(
             status_code=400,
@@ -957,12 +962,12 @@ def edit_finding_suggestion(
         )
 
     # Splice replacement
-    new_text = old_text[:finding.span_start] + payload.custom_text + old_text[finding.span_end:]
+    new_text = old_text[:finding.span_start] + replacement + old_text[finding.span_end:]
 
     # Update finding persistence
     now = datetime.datetime.utcnow()
     finding.status = "edited"
-    finding.selected_replacement = payload.custom_text
+    finding.selected_replacement = replacement
     finding.decided_by = current_user.id
     finding.decided_at = now
 

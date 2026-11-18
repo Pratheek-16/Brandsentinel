@@ -115,7 +115,13 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
 
   const handleSelectFinding = async (f: Finding) => {
     setSelectedFinding(f);
-    setCustomEditText(f.selected_replacement || f.suggestion_text || f.span_text);
+    const isGuidance = f.suggestion_text && (
+      f.suggestion_text.startsWith('Remove') ||
+      f.suggestion_text.startsWith('Ensure') ||
+      f.suggestion_text.startsWith('Append') ||
+      f.suggestion_text.startsWith('Specify')
+    );
+    setCustomEditText(f.selected_replacement || (!isGuidance && f.suggestion_text ? f.suggestion_text : f.span_text));
     if (f.status === 'open' || !f.status) {
       try {
         setLoadingSuggestions(true);

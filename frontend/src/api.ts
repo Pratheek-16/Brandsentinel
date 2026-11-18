@@ -185,7 +185,7 @@ export const api = {
     const res = await fetch(`${API_BASE}/content/${contentId}/findings/${findingId}/accept`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ replacement_text: replacementText }),
+      body: JSON.stringify({ custom_text: replacementText, replacement_text: replacementText }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: 'Failed to accept suggestion' }));
@@ -202,7 +202,7 @@ export const api = {
     const res = await fetch(`${API_BASE}/content/${contentId}/findings/${findingId}/edit`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ replacement_text: replacementText }),
+      body: JSON.stringify({ custom_text: replacementText, replacement_text: replacementText }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: 'Failed to save edit' }));
