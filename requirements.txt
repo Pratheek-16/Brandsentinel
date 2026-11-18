@@ -2,6 +2,7 @@ fastapi==0.111.0
 uvicorn[standard]==0.30.0
 pydantic==2.7.1
 pydantic-settings==2.3.4
+email-validator==2.2.0
 SQLAlchemy==2.0.30
 psycopg2-binary==2.9.10
 alembic==1.13.2
@@ -11,20 +12,13 @@ httpx==0.27.0
 cryptography==43.0.1
 passlib[bcrypt]==1.7.4
 argon2-cffi==23.1.0
+pyjwt==2.8.0
 pytesseract==0.3.13
 pdfplumber==0.11.2
 python-docx==1.1.2
 Pillow==10.3.0
-opencv-python==4.9.0.80
-scikit-image==0.24.0
-presidio-analyzer==2.2.33
-presidio-anonymizer==2.2.33
-spacy==3.7.4
 rapidfuzz==3.9.5
-textstat==0.7.3
-sentence-transformers==2.7.0
-numpy==2.0.0
-scipy==1.14.0
+numpy==1.26.4
 # LLM providers
 google-generativeai==0.7.0
 # optional local LLM (mock) – no extra deps
