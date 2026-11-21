@@ -1,20 +1,28 @@
 import io
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from PIL import Image
-import pdfplumber
 
 from ...db import session, models
 from ...core.security import get_current_user
 from ...core.config import settings
-from .analyzer import analyze_image_brand_consistency
+from .analyzer import inspect_asset_accessibility, check_ocr_availability
 
 router = APIRouter(prefix="/vision", tags=["vision"])
+
+
+@router.get("/ocr-status")
+def get_ocr_status(current_user: models.User = Depends(get_current_user)):
+    """Return explicit host OCR engine availability status."""
+    return check_ocr_availability()
+
 
 @router.post("/analyze")
 def analyze_image_endpoint(
     file: UploadFile = File(...),
+    alt_text: Optional[str] = Form(None),
+    logo_file: Optional[UploadFile] = File(None),
     db: Session = Depends(session.get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -35,7 +43,9 @@ def analyze_image_endpoint(
         .first()
     )
     palette = None
+    brand_name = None
     if kb:
+        brand_name = current_user.workspace.name if current_user.workspace else None
         asset = (
             db.query(models.Asset)
             .filter(models.Asset.kb_version_id == kb.id, models.Asset.type == "palette")
@@ -51,36 +61,29 @@ def analyze_image_endpoint(
                 palette = spec
 
     filename = file.filename or "uploaded_asset"
-    lower_name = filename.lower()
 
-    # Handle PDF by extracting rendered first page
-    image_bytes = data
-    if lower_name.endswith(".pdf"):
+    logo_bytes = None
+    if logo_file:
         try:
-            with pdfplumber.open(io.BytesIO(data)) as pdf:
-                if not pdf.pages:
-                    raise HTTPException(status_code=400, detail="PDF has no pages.")
-                first_page = pdf.pages[0]
-                # Render page to image
-                page_img = first_page.to_image(resolution=150).original
-                buf = io.BytesIO()
-                page_img.save(buf, format="PNG")
-                image_bytes = buf.getvalue()
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Could not render PDF for visual analysis: {str(e)}")
+            logo_bytes = logo_file.file.read()
+        except Exception:
+            logo_bytes = None
 
     try:
-        results = analyze_image_brand_consistency(
-            image_bytes=image_bytes,
-            approved_palette_hex=palette,
+        results = inspect_asset_accessibility(
+            file_bytes=data,
             filename=filename,
+            approved_palette_hex=palette,
+            alt_text=alt_text,
+            logo_template_bytes=logo_bytes,
+            brand_name=brand_name,
         )
         return {
             "filename": filename,
             "results": results,
             **results,
         }
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Visual asset inspection error: {str(e)}")
