@@ -904,7 +904,13 @@ def get_finding_suggestions(
         },
         "suggestion": {"text": finding.suggestion_text} if finding.suggestion_text else None,
     }
-    suggestions = get_verified_suggestions(raw_text, f_dict)
+    kb = (
+        db.query(models.KBVersion)
+        .filter(models.KBVersion.workspace_id == content.workspace_id, models.KBVersion.is_active == True)
+        .first()
+    )
+    kb_id = kb.id if kb else None
+    suggestions = get_verified_suggestions(raw_text, f_dict, db=db, kb_version_id=kb_id)
     return {
         "finding_id": finding.id,
         "span_text": finding.span_text,
@@ -1024,7 +1030,13 @@ def edit_finding_suggestion(
         "severity": finding.severity,
         "span": {"start": finding.span_start, "end": finding.span_end, "text": finding.span_text},
     }
-    is_valid, reason, _ = verify_suggestion(old_text, f_dict, replacement)
+    kb = (
+        db.query(models.KBVersion)
+        .filter(models.KBVersion.workspace_id == content.workspace_id, models.KBVersion.is_active == True)
+        .first()
+    )
+    kb_id = kb.id if kb else None
+    is_valid, reason, _ = verify_suggestion(old_text, f_dict, replacement, db=db, kb_version_id=kb_id)
     if not is_valid:
         raise HTTPException(
             status_code=400,

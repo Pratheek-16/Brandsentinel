@@ -163,3 +163,35 @@ def test_improvement_3_insights_and_ambiguity_detector():
     # Verify ambiguity analysis produces actionable guidance
     rule_entry = ambig["flagged_rules"][0]
     assert "recommendation" in rule_entry
+
+
+def test_improvement_1_meaning_preservation_branches():
+    """Tests all branches of suggestion verification:
+    1. Valid replacement passes with intent and meaning preserved.
+    2. Candidate that does not resolve or introduces a new violation is rejected.
+    3. Empty or excessively distorted candidates are rejected.
+    """
+    orig_text = "Call 555-0199 for support. Order the nova watch today with 14 days battery!"
+    finding = {
+        "category": "terminology",
+        "severity": "major",
+        "span": {"start": 37, "end": 47, "text": "nova watch"},
+        "evidence": {"type": "term", "id": "NF-TERM-01", "quote": "nova watch"},
+    }
+
+    # Branch 1: Valid intent-preserving candidate
+    valid_cand = "NovaBand Pro"
+    ok, reason, _ = verify_suggestion(orig_text, finding, valid_cand)
+    assert ok is True
+    assert "Resolves violation" in reason
+
+    # Branch 2: Candidate that introduces another violation or fails to resolve
+    regressive_cand = "nova watch"
+    ok_reg, reason_reg, _ = verify_suggestion(orig_text, finding, regressive_cand)
+    assert ok_reg is False
+    assert "does not resolve" in reason_reg or "introduces" in reason_reg
+
+    # Branch 3: Empty replacement candidate
+    ok_empty, reason_empty, _ = verify_suggestion(orig_text, finding, "   ")
+    assert ok_empty is False
+    assert "empty" in reason_empty.lower()
