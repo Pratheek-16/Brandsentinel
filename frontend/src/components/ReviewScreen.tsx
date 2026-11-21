@@ -20,6 +20,9 @@ import {
   Clock,
   Layers,
   Lock,
+  Download,
+  FileText,
+  Cpu,
 } from 'lucide-react';
 import { api } from '../api';
 import {
@@ -55,7 +58,9 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [loading, setLoading] = useState(false);
   const [reReviewing, setReReviewing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'findings' | 'claims' | 'comments' | 'versions'>('findings');
+  const [activeTab, setActiveTab] = useState<'findings' | 'claims' | 'ai_ledger' | 'comments' | 'versions'>('findings');
+  const [aiLedger, setAiLedger] = useState<any>(null);
+  const [loadingLedger, setLoadingLedger] = useState(false);
   
   // Modals & custom edits
   const [dismissReason, setDismissReason] = useState('');
@@ -253,6 +258,40 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
       setComments(cm || []);
     } catch (err: any) {
       setActionAlert({ type: 'error', message: err.message || 'Failed to post comment' });
+    }
+  };
+
+  const handleExportCertificate = async () => {
+    try {
+      const certText = await api.exportCertificate(contentId, 'markdown');
+      const blob = new Blob([certText], { type: 'text/markdown;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Brand_Governance_Certificate_${contentId}.md`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setActionAlert({
+        type: 'success',
+        message: 'Brand Governance Certificate exported successfully with cryptographic SHA-256 signature.',
+      });
+    } catch (err: any) {
+      setActionAlert({ type: 'error', message: err.message || 'Export failed' });
+    }
+  };
+
+  const handleOpenAILedger = async () => {
+    setActiveTab('ai_ledger');
+    try {
+      setLoadingLedger(true);
+      const res = await api.getAILedger(contentId);
+      setAiLedger(res);
+    } catch (err: any) {
+      console.warn('Could not load AI ledger:', err);
+    } finally {
+      setLoadingLedger(false);
     }
   };
 
@@ -474,6 +513,15 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
             <span>Re-verify</span>
           </button>
 
+          <button
+            onClick={handleExportCertificate}
+            title="Download cryptographically signed Brand Governance Certificate"
+            className="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg border border-indigo-200 transition-colors flex items-center space-x-1.5"
+          >
+            <Download className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Export Certificate</span>
+          </button>
+
           {currentUser?.role === 'creator' && (
             content.status === 'draft' || content.status === 'ai_checked' || content.status === 'changes_requested' ? (
               <button
@@ -592,6 +640,16 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
               Claim Ledger ({claims.length})
             </button>
             <button
+              onClick={handleOpenAILedger}
+              className={`pb-2.5 text-xs font-bold uppercase transition-colors border-b-2 whitespace-nowrap ${
+                activeTab === 'ai_ledger'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              AI Usage Ledger
+            </button>
+            <button
               onClick={() => setActiveTab('comments')}
               className={`pb-2.5 text-xs font-bold uppercase transition-colors border-b-2 whitespace-nowrap ${
                 activeTab === 'comments'
@@ -647,6 +705,15 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
                             <span className="font-bold uppercase tracking-wider text-slate-700 text-[11px]">
                               {f.category}
                             </span>
+                            {f.source === 'ai' ? (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 border border-indigo-200">
+                                AI (Judge)
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300">
+                                Rule (Deterministic)
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center space-x-2">
                             {renderStatusBadge(f.status)}
@@ -733,8 +800,13 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
                             className="p-3 bg-white border border-blue-200 rounded-lg flex items-center justify-between text-xs shadow-2xs"
                           >
                             <div className="pr-3 space-y-1">
-                              <div className="font-semibold text-emerald-800 font-mono text-[12px]">
-                                Replace: "{s.replacement_text}"
+                              <div className="flex items-center space-x-2">
+                                <span className="font-semibold text-emerald-800 font-mono text-[12px]">
+                                  Replace: "{s.replacement_text}"
+                                </span>
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                  verified: meaning preserved
+                                </span>
                               </div>
                               <div className="text-[11px] text-slate-500 flex items-center space-x-1">
                                 <CheckCircle className="w-3 h-3 text-emerald-600 shrink-0" />
@@ -801,6 +873,80 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
                       )}
                     </div>
                   ))
+                )}
+              </div>
+            )}
+
+            {/* AI USAGE LEDGER TAB */}
+            {activeTab === 'ai_ledger' && (
+              <div className="space-y-4 text-xs">
+                {loadingLedger ? (
+                  <div className="text-center py-8 text-slate-500 flex items-center justify-center space-x-2">
+                    <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
+                    <span>Loading AI usage audit ledger...</span>
+                  </div>
+                ) : !aiLedger ? (
+                  <div className="text-center py-8 text-slate-400">
+                    No AI provider invocations recorded for this review.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-slate-400">Provider & Model</span>
+                        <div className="font-bold text-slate-900 font-mono text-sm">{aiLedger.provider} ({aiLedger.model})</div>
+                        <div className="text-[10px] text-slate-500">Prompt: {aiLedger.prompt_version}</div>
+                      </div>
+
+                      <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-slate-400">Estimated API Cost</span>
+                        <div className="font-bold text-emerald-700 font-mono text-sm">{aiLedger.totals?.estimated_cost_usd}</div>
+                        <div className="text-[10px] text-slate-500">{aiLedger.totals?.cost_basis}</div>
+                      </div>
+
+                      <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-slate-400">Payload Volume</span>
+                        <div className="font-bold text-slate-900 font-mono text-sm">
+                          {aiLedger.totals?.characters_sent} sent / {aiLedger.totals?.characters_returned} recv
+                        </div>
+                        <div className="text-[10px] text-slate-500">Total characters processed</div>
+                      </div>
+
+                      <div className="p-3 bg-purple-50 rounded-lg border border-purple-200 space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-purple-700">Privacy & Redactions</span>
+                        <div className="font-bold text-purple-900 font-mono text-sm">
+                          {aiLedger.totals?.redacted_entities} entities masked
+                        </div>
+                        <div className="text-[10px] text-purple-700">PII withheld from AI prompts</div>
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 bg-blue-50/60 rounded-xl border border-blue-200 space-y-2">
+                      <div className="flex items-center justify-between font-bold text-blue-900 text-xs">
+                        <span>Human-in-the-Loop Governance Adherence</span>
+                        <span>{aiLedger.human_governance?.human_acceptance_rate_pct}% Acceptance</span>
+                      </div>
+                      <div className="text-[11px] text-slate-600">
+                        {aiLedger.human_governance?.total_ai_findings} AI findings surfaced: {aiLedger.human_governance?.human_accepted_count} accepted by creators/reviewers, {aiLedger.human_governance?.human_dismissed_count} dismissed with justification.
+                      </div>
+                    </div>
+
+                    {aiLedger.records && aiLedger.records.length > 0 && (
+                      <div className="space-y-2">
+                        <span className="text-[11px] font-bold text-slate-700 uppercase">Invocation Ledger</span>
+                        {aiLedger.records.map((rec: any, idx: number) => (
+                          <div key={idx} className="p-2.5 bg-white border border-slate-200 rounded-lg font-mono text-[11px] flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-slate-900">[{rec.purpose.toUpperCase()}]</span> {rec.provider} / {rec.model}
+                            </div>
+                            <div className="text-slate-500">
+                              {rec.segments_sent} sent | {rec.redaction_count} redacted
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             )}

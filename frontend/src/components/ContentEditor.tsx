@@ -34,48 +34,48 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({
   const [existingDrafts, setExistingDrafts] = useState<ContentItem[]>([]);
   const [loadingDrafts, setLoadingDrafts] = useState(false);
 
-  // Brand-tailored realistic samples
+  // Brand-tailored realistic samples for foolproof judging walkthrough
   const brandSamples: Record<string, Array<{ label: string; title: string; channel: string; body: string }>> = {
     NovaFit: [
       {
-        label: 'Promotional Ad with Health Claim & PII',
-        title: 'NovaFit Summer Blast Campaign',
+        label: 'NovaFit Creator: PulseBand breach + battery claim + Indian PII',
+        title: 'NovaFit Pulse Summer Launch',
         channel: 'social',
-        body: 'Reach out to support@novafit.local or call 555-019-2831. We guarantee you will lose 20 lbs in 14 days without dieting or exercise! Try the cheapest fitness tracker today for free forever with NovaFit.',
+        body: 'The new PulseBand is the best fitness wearable in the world! Delivers 14 days of battery life on a single charge. Contact +91 9876543210 or support@novafit.local to pre-order.',
       },
       {
-        label: 'Approved Certified Coach Announcement',
-        title: 'Spring Member Wellness Series',
+        label: 'NovaFit Reviewer: Pending approval queue item (Minor tone)',
+        title: 'NovaFit Member Coaching Update',
         channel: 'email',
-        body: 'Welcome to NovaFit. Our elite wellness programs are crafted to support your healthy lifestyle with certified coaches. Terms and conditions apply.',
+        body: 'Welcome to NovaFit. Our pulse tracking hardware delivers up to 10 days of continuous battery life with certified guidance. Terms and conditions apply.',
       },
     ],
     'Lumen Bank': [
       {
-        label: 'High-Yield Savings Promo (Missing Disclaimer)',
-        title: 'Lumen High-Yield Account Launch',
+        label: 'Lumen Bank: Missing APR disclaimer & guaranteed returns',
+        title: 'Lumen High-Yield Account Campaign',
         channel: 'website',
-        body: 'Earn an unprecedented 7.5% APY with Lumen Bank high-yield savings! Guaranteed 100% risk-free returns on all deposits up to $500,000. Contact private-wealth@lumenbank.local for exclusive access.',
+        body: 'Earn an unprecedented 7.5% APY with Lumen Bank savings! Guaranteed risk-free returns on all deposits up to $500,000. Contact wealth@lumenbank.local.',
       },
       {
-        label: 'Compliant FDIC Statement',
-        title: 'Lumen Secure Banking Update',
+        label: 'Lumen Bank: Compliant FDIC Disclosure',
+        title: 'Lumen Secure Banking Statement',
         channel: 'email',
-        body: 'Lumen Bank is dedicated to protecting your assets. Member FDIC. Loans subject to credit approval and underwriting guidelines.',
+        body: 'Lumen Bank is dedicated to protecting your assets. Member FDIC. Loans subject to credit approval and underwriting guidelines. Annual Percentage Rate varies.',
       },
     ],
     'Aster University': [
       {
-        label: 'Admissions Campaign (Outdated Tuition Fact)',
-        title: 'Fall 2026 Undergraduate Admissions',
+        label: 'Aster: Sustainability claim with outdated 2023 cert fact',
+        title: 'Aster Green Campus Initiative',
         channel: 'social',
-        body: 'Join Aster University this autumn. Tuition is only $12,500 per semester with 100% job placement guaranteed upon graduation. Drop a line to dean@aster.local or visit our campus.',
+        body: 'Aster University operates on 100% renewable power under our 2023 Green Campus ISO-14001 certification. Join the autumn student cohort today.',
       },
       {
-        label: 'Formal Faculty Welcome',
-        title: 'Aster Academic Convocation',
+        label: 'Aster: Compliant Academic Welcome',
+        title: 'Aster Convocation Address',
         channel: 'website',
-        body: 'Aster University warmly welcomes our incoming cohort. Grounded in a tradition of scholarly rigor, we empower students to lead with purpose and inquiry.',
+        body: 'Aster University warmly welcomes our incoming students. Grounded in scholarly rigor, our faculty empowers students to lead with purpose.',
       },
     ],
   };

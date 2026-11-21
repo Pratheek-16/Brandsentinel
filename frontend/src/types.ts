@@ -55,6 +55,7 @@ export interface Finding {
   reason: string;
   suggestion_text?: string;
   claim_status?: string;
+  source?: 'rule' | 'ai' | string;
   status?: 'open' | 'accepted' | 'edited' | 'dismissed';
   selected_replacement?: string | null;
   dismissal_reason?: string | null;

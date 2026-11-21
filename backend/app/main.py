@@ -50,7 +50,30 @@ app.include_router(insights_router)
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok"}
+    import datetime
+    has_gemini_key = bool(settings.gemini_api_key)
+    provider_name = settings.llm_model or "mock"
+    if has_gemini_key:
+        ai_state = "active"
+        ai_label = f"AI: {provider_name}"
+    elif provider_name == "mock":
+        ai_state = "mock"
+        ai_label = "AI: mock (test double)"
+    else:
+        ai_state = "deterministic"
+        ai_label = "Deterministic only"
+
+    return {
+        "status": "ok",
+        "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+        "environment": settings.environment,
+        "ai_provider": {
+            "name": provider_name,
+            "status": ai_state,
+            "label": ai_label,
+            "has_key": has_gemini_key,
+        }
+    }
 
 frontend_dist = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 if frontend_dist.is_dir():

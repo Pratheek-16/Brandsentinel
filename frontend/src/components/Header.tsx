@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShieldCheck, UserCircle, LogOut, Cpu, Building2 } from 'lucide-react';
 import { User } from '../types';
+import { api } from '../api';
 
 interface HeaderProps {
   user: User | null;
@@ -19,6 +20,61 @@ export const Header: React.FC<HeaderProps> = ({
   currentTab,
   onSelectTab,
 }) => {
+  const [aiStatus, setAiStatus] = useState<{ status: string; label: string }>({
+    status: 'checking',
+    label: 'Checking AI provider...',
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    api.getHealth()
+      .then((data) => {
+        if (!isMounted) return;
+        if (data.ai_provider) {
+          setAiStatus({
+            status: data.ai_provider.status,
+            label: data.ai_provider.label,
+          });
+        } else {
+          setAiStatus({ status: 'active', label: 'AI Provider: Active' });
+        }
+      })
+      .catch(() => {
+        if (isMounted) setAiStatus({ status: 'error', label: 'AI Provider: Offline' });
+      });
+    return () => { isMounted = false; };
+  }, []);
+
+  const getAiBadgeColor = () => {
+    switch (aiStatus.status) {
+      case 'active':
+        return 'text-emerald-400 border-emerald-900/80 bg-slate-800';
+      case 'mock':
+        return 'text-blue-400 border-blue-900/80 bg-slate-800';
+      case 'deterministic':
+        return 'text-amber-400 border-amber-900/80 bg-slate-800';
+      case 'error':
+        return 'text-red-400 border-red-900/80 bg-slate-800';
+      default:
+        return 'text-slate-400 border-slate-700 bg-slate-800';
+    }
+  };
+
+  const getAiDotColor = () => {
+    switch (aiStatus.status) {
+      case 'active':
+        return 'bg-emerald-400 animate-pulse';
+      case 'mock':
+        return 'bg-blue-400';
+      case 'deterministic':
+        return 'bg-amber-400';
+      case 'error':
+        return 'bg-red-400';
+      default:
+        return 'bg-slate-400';
+    }
+  };
+
   const getRoleBadge = (role: string) => {
     switch (role) {
       case 'admin':
@@ -60,9 +116,10 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Controls: AI Provider, Workspace Selector, User Persona */}
           <div className="flex items-center space-x-4">
-            <div className="hidden sm:flex items-center space-x-1.5 bg-slate-800 px-3 py-1 rounded-full text-xs font-mono text-emerald-400 border border-emerald-900/80">
-              <Cpu className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-              <span>AI provider: mock</span>
+            <div className={`hidden sm:flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-mono border ${getAiBadgeColor()}`}>
+              <span className={`w-2 h-2 rounded-full ${getAiDotColor()}`} />
+              <Cpu className="w-3.5 h-3.5" />
+              <span>{aiStatus.label}</span>
             </div>
 
             <div className="flex items-center space-x-1.5 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1">

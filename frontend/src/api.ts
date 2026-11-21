@@ -504,9 +504,41 @@ export const api = {
     return res.json();
   },
 
-  getAmbiguity: async (): Promise<{ total_rules_analyzed: number; flagged_count: number; flagged_rules: any[] }> => {
+  getAmbiguity: async (): Promise<{ total_rules_analyzed: number; flagged_count: number; flagged_rules: any[]; all_signals?: any[]; health_status?: string }> => {
     const res = await fetch(`${API_BASE}/insights/ambiguity`, { headers: getAuthHeaders() });
     if (!res.ok) throw new Error('Failed to fetch ambiguity report');
     return res.json();
+  },
+
+  acceptClarification: async (payload: { signal_type: string; target_code?: string; term_preferred?: string; clarified_text: string }): Promise<any> => {
+    const res = await fetch(`${API_BASE}/insights/accept-clarification`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to accept clarification' }));
+      throw new Error(err.detail || 'Failed to accept clarification');
+    }
+    return res.json();
+  },
+
+  getHealth: async (): Promise<{ status: string; ai_provider?: { name: string; status: string; label: string; has_key: boolean } }> => {
+    const res = await fetch(`${API_BASE}/health`);
+    if (!res.ok) throw new Error('Failed to fetch system health');
+    return res.json();
+  },
+
+  getAILedger: async (contentId: number): Promise<any> => {
+    const res = await fetch(`${API_BASE}/content/${contentId}/ai-ledger`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch AI usage ledger');
+    return res.json();
+  },
+
+  exportCertificate: async (contentId: number, format: 'markdown' | 'json' | 'html' = 'markdown'): Promise<any> => {
+    const res = await fetch(`${API_BASE}/content/${contentId}/export?format=${format}`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Failed to export governance certificate');
+    if (format === 'json') return res.json();
+    return res.text();
   },
 };
