@@ -60,3 +60,7 @@ uploads/
 
 # Render and deployment
 .render/
+
+# Local duplicate and test db
+brandsentinel/
+test_brandsentinel.db
