@@ -69,8 +69,9 @@ def seed_demo_data(db: Session):
                 {"code": "NF-FACT-03", "key": "app_version", "value": "4.2.0", "unit": "semver", "source": "Release Notes 2026"}
             ],
             "terms": [
-                {"preferred": "NovaBand Pro", "banned": ["Nova Watch", "Nova Tracker", "Fat Burner Watch"], "notes": "Official brand device name"},
-                {"preferred": "FitPulse Engine", "banned": ["pulse algorithm", "heart track"], "notes": "Proprietary biometric algorithm"}
+                {"preferred": "NovaBand Pro", "banned": ["Nova Watch", "Nova Tracker", "Fat Burner Watch", "cheapest fitness tracker"], "notes": "Official brand device name"},
+                {"preferred": "FitPulse Engine", "banned": ["pulse algorithm", "heart track"], "notes": "Proprietary biometric algorithm"},
+                {"preferred": "complimentary trial", "banned": ["free forever"], "notes": "Pricing model"}
             ],
             "claims": [
                 {
@@ -129,7 +130,7 @@ def seed_demo_data(db: Session):
                 {"code": "LB-FACT-03", "key": "routing_number", "value": "021000021", "unit": "ABA", "source": "Federal Reserve Routing Registry"}
             ],
             "terms": [
-                {"preferred": "Lumen High-Yield Savings", "banned": ["Money Doubler", "Magic Saver", "Super Vault"], "notes": "Official regulated deposit account name"},
+                {"preferred": "Lumen High-Yield Savings", "banned": ["Money Doubler", "Magic Saver", "Super Vault", "Crypto Locker", "Unhackable Money Chest"], "notes": "Official regulated deposit account name"},
                 {"preferred": "Lumen Secured Card", "banned": ["No-rules credit", "Instant Cash Card"], "notes": "Collateral-backed credit product"}
             ],
             "claims": [
@@ -189,8 +190,9 @@ def seed_demo_data(db: Session):
                 {"code": "AU-FACT-03", "key": "endowment_value", "value": "3.2", "unit": "billion_usd", "source": "Treasury Annual Audit 2025"}
             ],
             "terms": [
-                {"preferred": "first-year undergraduate", "banned": ["freshman", "frosh"], "notes": "Inclusive academic nomenclature"},
-                {"preferred": "Aster Scholar Initiative", "banned": ["Smart Kid Fund", "Genius Grant"], "notes": "Merit-based financial aid program"}
+                {"preferred": "first-year undergraduate", "banned": ["freshman", "freshmen", "frosh"], "notes": "Inclusive academic nomenclature"},
+                {"preferred": "Aster Scholar Initiative", "banned": ["Smart Kid Fund", "Genius Grant"], "notes": "Merit-based financial aid program"},
+                {"preferred": "Campus Quad", "banned": ["The Yard", "The Lawn"], "notes": "Campus historic grounds"}
             ],
             "claims": [
                 {

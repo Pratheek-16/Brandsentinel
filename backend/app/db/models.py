@@ -186,6 +186,7 @@ class Finding(Base):
     reason = Column(Text, nullable=False)
     suggestion_text = Column(Text, nullable=True)
     claim_status = Column(String, default="n/a")
+    source = Column(String, default="rule", nullable=True)  # rule | ai
     status = Column(String, default="open", nullable=False)  # open | accepted | edited | dismissed
     selected_replacement = Column(Text, nullable=True)
     decided_by = Column(Integer, ForeignKey("users.id"), nullable=True)

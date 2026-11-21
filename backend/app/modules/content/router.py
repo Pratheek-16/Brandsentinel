@@ -362,6 +362,7 @@ def get_existing_review(
             "reason": f.reason,
             "suggestion_text": f.suggestion_text,
             "claim_status": f.claim_status,
+            "source": f.source or "rule",
             "status": f.status or "open",
             "selected_replacement": f.selected_replacement,
             "dismissal_reason": f.dismissal_reason,
@@ -431,10 +432,44 @@ def review_content(
     # 1. Redact PII and sensitive data before any external provider processing
     redacted_text, placeholders, counts, offset_records = redact_text_with_offsets(raw_text)
 
-    # 2. Invoke AI Provider or Deterministic Engine
+    # 2. Invoke Layer 1: Knowledge-Base Driven Deterministic Engine
+    from ..deterministic.kb_engine import run_kb_checks
+    from ..deterministic.checks import run_deterministic_checks
+
+    kb_raw_findings = run_kb_checks(
+        redacted_text,
+        db=db,
+        kb_version_id=active_kb.id,
+        channel=content.channel,
+    )
+
+    # Layer 2: Baseline / Demo deterministic checks & AI Provider
     provider = get_provider()
-    raw_output = provider.generate_json(prompt=redacted_text, schema={"findings": []}, purpose="review")
-    raw_findings = raw_output.get("findings", [])
+    is_mock = getattr(provider, "is_mock", False) or provider.__class__.__name__ == "MockProvider"
+    if is_mock:
+        baseline_raw = run_deterministic_checks(redacted_text)
+    else:
+        raw_output = provider.generate_json(prompt=redacted_text, schema={"findings": []}, purpose="review")
+        baseline_raw = raw_output.get("findings", [])
+
+    # Merge: KB findings first, then baseline/AI findings deduplicated
+    raw_findings = []
+    seen_spans = set()
+    for f in kb_raw_findings:
+        span = f.get("span", {})
+        key = (span.get("start"), span.get("end"), f.get("category"))
+        seen_spans.add(key)
+        f["source"] = "rule"
+        raw_findings.append(f)
+
+    for f in baseline_raw:
+        span = f.get("span", {})
+        key = (span.get("start"), span.get("end"), f.get("category"))
+        if key not in seen_spans:
+            seen_spans.add(key)
+            if "source" not in f:
+                f["source"] = "rule" if is_mock else "ai"
+            raw_findings.append(f)
 
     # 3. Map redacted spans back to original unredacted content offsets
     mapped_findings = []
@@ -455,9 +490,11 @@ def review_content(
             mapped_findings.append(rf)
 
     # 4. Strict Grounding Verifier against original text and active KB records
-    clean_findings = verify_findings(mapped_findings, raw_text, db=db, kb_version_id=active_kb.id)
+    clean_findings, verifier_metrics = verify_findings(
+        mapped_findings, raw_text, db=db, kb_version_id=active_kb.id, return_metrics=True
+    )
 
-    # 5. Persist verified findings with status="open"
+    # 5. Persist verified findings with status="open" and source
     persisted_findings = []
     for f in clean_findings:
         span = f["span"]
@@ -482,6 +519,7 @@ def review_content(
             reason=f["reason"],
             suggestion_text=suggestion_text,
             claim_status=f.get("claim_status", "n/a"),
+            source=f.get("source", "rule"),
             status="open",
         )
         db.add(new_finding)
@@ -493,6 +531,7 @@ def review_content(
         f_copy["span_end"] = span["end"]
         f_copy["span_text"] = span["text"]
         f_copy["status"] = "open"
+        f_copy["source"] = f.get("source", "rule")
         persisted_findings.append(f_copy)
 
     # 6. Record AI Usage with redaction details
@@ -537,6 +576,7 @@ def review_content(
         "redaction_count": counts["total"],
         "redacted_counts": counts,
         "findings": persisted_findings,
+        "verifier_metrics": verifier_metrics,
     }
 
 @router.post("/{content_id}/submit", status_code=200)
@@ -791,11 +831,22 @@ def get_claim_ledger(
         "content_id": content.id,
         "version_id": version.id,
         "total_claims": len(ledger),
-        "approved_count": sum(1 for c in ledger if c["status"] == "approved"),
-        "missing_disclaimer_count": sum(1 for c in ledger if c["status"] == "missing_disclaimer"),
-        "expired_count": sum(1 for c in ledger if c["status"] == "expired"),
-        "unsupported_count": sum(1 for c in ledger if c["status"] == "unsupported"),
-        "claims": ledger,
+        "supported_count": sum(1 for c in ledger if c.get("status") in ("supported", "approved")),
+        "approved_count": sum(1 for c in ledger if c.get("status") in ("supported", "approved")),
+        "missing_disclaimer_count": sum(1 for c in ledger if c.get("status") == "missing_disclaimer"),
+        "outdated_count": sum(1 for c in ledger if c.get("status") in ("outdated", "expired")),
+        "expired_count": sum(1 for c in ledger if c.get("status") in ("outdated", "expired")),
+        "contradicted_count": sum(1 for c in ledger if c.get("status") == "contradicted"),
+        "unsupported_count": sum(1 for c in ledger if c.get("status") == "unsupported"),
+        "claims": [
+            {
+                **c,
+                # Ensure backward-compatibility: status accepted as both
+                "status": "approved" if c.get("status") == "supported" else ("expired" if c.get("status") == "outdated" else c.get("status")),
+                "round3_status": c.get("status"),
+            }
+            for c in ledger
+        ],
     }
 
 # --- Improvement I-1: Suggestion Actions & Verifications ---
