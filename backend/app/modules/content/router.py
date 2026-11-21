@@ -432,7 +432,17 @@ def review_content(
     # 1. Redact PII and sensitive data before any external provider processing
     redacted_text, placeholders, counts, offset_records = redact_text_with_offsets(raw_text)
 
-    # 2. Invoke Layer 1: Knowledge-Base Driven Deterministic Engine
+    # 2. Evidence Retrieval (RAG) from Active Knowledge Base
+    from ..ai_providers.vector_store import global_vector_store
+    retrieved_evidence = global_vector_store.retrieve_evidence_for_segment(
+        raw_text,
+        db=db,
+        kb_version_id=active_kb.id,
+        top_k=6,
+        channel=content.channel,
+    )
+
+    # Layer 1: Knowledge-Base Driven Deterministic Engine
     from ..deterministic.kb_engine import run_kb_checks
     from ..deterministic.checks import run_deterministic_checks
 
@@ -443,14 +453,23 @@ def review_content(
         channel=content.channel,
     )
 
-    # Layer 2: Baseline / Demo deterministic checks & AI Provider
+    # Layer 2: Baseline / Demo deterministic checks & AI Provider with Retrieved Evidence
     provider = get_provider()
     is_mock = getattr(provider, "is_mock", False) or provider.__class__.__name__ == "MockProvider"
+    ai_status = "active" if not is_mock else "mock"
+
     if is_mock:
         baseline_raw = run_deterministic_checks(redacted_text)
     else:
-        raw_output = provider.generate_json(prompt=redacted_text, schema={"findings": []}, purpose="review")
+        raw_output = provider.generate_json(
+            prompt=redacted_text,
+            schema={"findings": []},
+            purpose="review",
+            retrieved_evidence=retrieved_evidence,
+        )
         baseline_raw = raw_output.get("findings", [])
+        if "ai_status" in raw_output:
+            ai_status = raw_output["ai_status"]
 
     # Merge: KB findings first, then baseline/AI findings deduplicated
     raw_findings = []
