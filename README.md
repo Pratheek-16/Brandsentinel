@@ -2,212 +2,216 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111.0-009688.svg)](https://fastapi.tiangolo.com)
-[![React](https://img.shields.io/badge/React-18-61DAFB.svg)](https://react.dev)
+[![React](https://img.shields.io/badge/React-19.3-61DAFB.svg)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.2-3178C6.svg)](https://www.typescriptlang.org)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC.svg)](https://tailwindcss.com)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.3-38B2AC.svg)](https://tailwindcss.com)
+[![Test Suite](https://img.shields.io/badge/Tests-46%20Passed-brightgreen.svg)](backend/tests)
+[![Benchmark F1](https://img.shields.io/badge/BrandBench%20v2%20F1-86.8%25-blue.svg)](benchmark/report.md)
+[![SUS Score](https://img.shields.io/badge/Usability%20SUS-87.5%20(Grade%20A)-success.svg)](docs/research/summary.md)
 
-**BrandSentinel** is a production-grade, pre-publication brand-governance and compliance platform built for the **Inkloom AI Brand-Governance Hackathon**.
+**BrandSentinel** is an intelligent, pre-publication brand-governance and compliance platform built for the **Inkloom AI Brand-Governance Hackathon (Round 3: "The Finish")**.
 
-It enables marketing and content teams to evaluate pre-publication copy, documents (DOCX, PDF), and visual assets against approved brand guidelines, factual records, approved terminology, regulatory claim registers, and visual identity palettes. Every finding is mathematically grounded with direct citations, paired with verified intent-preserving rewrite suggestions, and routed through a cryptographic, role-based review workflow.
-
----
-
-## Key Capabilities
-
-1. **Deterministic Grounding & Zero Hallucinations:** Findings are surfaced **only** when validated against approved knowledge-base rules and facts by the Grounding Verifier. Ungrounded findings are automatically dropped.
-2. **Improvement I-1: Verified Suggestion Engine:** Automatically generates intent-preserving candidate fixes, splices them into text, and executes self-verification regression checks before surfacing them to human creators.
-3. **Improvement I-2: Vision & Contrast Inspector:** Extracts dominant asset colors, computes **CIELAB $\Delta E^*$** color distances against the brand palette, and validates WCAG 2.2 AA contrast ratios ($\ge 4.5:1$).
-4. **Improvement I-3: Insights Dashboard & Rule Ambiguity Detector:** Detects guidelines that trigger creator dismissal rates $> 40\%$, alerting Brand Guardians to clarify ambiguous guidelines.
-5. **Role-Based Workflow & No-Self-Approval Enforcement:** Multi-tier state machine (Creator, Manager, Authorised Reviewer, Admin) enforcing separation of duties and automated risk-based escalation.
-6. **Cryptographic SHA-256 Hash-Chained Audit Trail:** Append-only cryptographic ledger providing mathematically verifiable tamper-evidence via `GET /audit/verify`.
+It enables marketing, copy, and legal review teams to audit pre-publication text, documents (DOCX, PDF), and visual assets against approved brand guidelines, factual records, approved terminology, regulatory claim registers, and visual palettes. Every finding is mathematically grounded with direct citations, paired with verified intent-preserving rewrite suggestions, and routed through a tamper-evident, role-based review workflow.
 
 ---
 
-## Quick Start Guide
+## Deliverables & Documentation Index
 
-### System Requirements
-- **Python 3.11+**
-- **Node.js 20+** and `npm`
-- **Git**
-- *(Optional)* **Tesseract OCR** for optical character extraction on scanned files (the application degrades gracefully if not installed).
+- **Round 3 Final Report:** [`docs/round3-report.md`](docs/round3-report.md) (~8 pages: Problem, Users, Architecture, 3 Improvements, Reliability, Security, Roadmap)
+- **Live Judging Walkthrough Script:** [`docs/demo-script.md`](docs/demo-script.md) (Step-by-step walkthrough for all personas)
+- **BrandBench v2 Evaluation Report:** [`benchmark/report.md`](benchmark/report.md) (60 held-out cases, 0.0% injection bypass, F1 86.8%)
+- **Accessibility & WCAG 2.2 AA Audit:** [`docs/accessibility.md`](docs/accessibility.md) (Contrast, focus, ARIA, and asset inspector specs)
+- **User Research & SUS Summary:** [`docs/research/summary.md`](docs/research/summary.md) (N=5 pilot participants, SUS 87.5, median task times)
+- **Changes Since Round 2:** [`docs/changes-since-round-2.md`](docs/changes-since-round-2.md) (Commit-by-commit changelog)
+- **Responsible Design & Privacy:** [`docs/responsible-design.md`](docs/responsible-design.md) (Redaction, human agency, no dark patterns)
+- **Limitations & 12-Month Roadmap:** [`docs/limitations-roadmap.md`](docs/limitations-roadmap.md) (Honest known boundaries and phased plans)
+- **Submission Checklist:** [`docs/submission-checklist.md`](docs/submission-checklist.md) (Audit against all 100 judging points)
+- **Disclosures & Attribution:** [`DISCLOSURES.md`](DISCLOSURES.md) (AI tools, open-source libraries, and licenses)
 
 ---
 
-### 1. Local Environment Setup
+## System Architecture
 
-#### Windows (PowerShell)
-```powershell
-# Navigate into repository
-cd C:\Users\sreep\Desktop\psp\codezen-project\brandsentinel
-
-# Create and activate Python virtual environment
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-
-# Install backend dependencies
-pip install -r backend\requirements.txt
-
-# Configure environment variables
-copy .env.example .env
+```
+                    +------------------------------------------+
+                    |  Pre-Publication Draft Copy or Document  |
+                    |       (Plain Text, Markdown, DOCX, PDF)  |
+                    +------------------------------------------+
+                                          |
+                                          v
+                    +------------------------------------------+
+                    | PII Redaction & Indian Data Protection   |
+                    | (Aadhaar, PAN, UPI, IFSC, Phone, Secrets)|
+                    +------------------------------------------+
+                                          |
+                     +--------------------+--------------------+
+                     |                                         |
+                     v                                         v
+   +------------------------------------+   +------------------------------------+
+   |   LAYER 1: DETERMINISTIC ENGINE    |   |     LAYER 2: GROUNDED LLM JUDGE    |
+   | Dynamic KB Rule, Fact & Term Match |   |  RAG Top-k Semantic Vector Search  |
+   | Exact, Lemmatised & RapidFuzz Match|   |  Prompt-Injection-Resistant Judge  |
+   | Numeric Fact & Unit Contradictions |   |  Low Temp, Strict Pydantic Schema  |
+   +------------------------------------+   +------------------------------------+
+                     |                                         |
+                     |                                         v
+                     |                      +------------------------------------+
+                     |                      |        GROUNDING VERIFIER          |
+                     |                      | 1. Cited Rule/Fact exists in KB    |
+                     |                      | 2. Quote matches stored KB text    |
+                     |                      | 3. Span offsets locate exact text  |
+                     |                      | * Drops ungrounded hallucinations  |
+                     |                      +------------------------------------+
+                     |                                         |
+                     +--------------------+--------------------+
+                                          |
+                                          v
+                    +------------------------------------------+
+                    |   DEDUPLICATION & PROVENANCE MERGING     |
+                    | Source: "Rule (Deterministic)" vs "AI"   |
+                    +------------------------------------------+
+                                          |
+         +--------------------------------+--------------------------------+
+         |                                |                                |
+         v                                v                                v
++-------------------+           +--------------------+           +-------------------+
+|  IMPROVEMENT I-1  |           |   IMPROVEMENT I-2  |           |  IMPROVEMENT I-3  |
+| Verified Suggest- |           | Visual Palette dE, |           | Governance In-    |
+| ion Engine with   |           | WCAG 2.2 AA Con-   |           | sights & Ambiguity|
+| Meaning Preserv-  |           | trast, DOCX/PDF    |           | Detector (4 Real  |
+| ation Checking    |           | Accessibility (0-  |           | Signals + Accept  |
+|                   |           | 100 Score Breakdown|           | Clarification vNext|
++-------------------+           +--------------------+           +-------------------+
+         |                                |                                |
+         +--------------------------------+--------------------------------+
+                                          |
+                                          v
+                    +------------------------------------------+
+                    |      FOUR-EYES RBAC & AUDIT LEDGER       |
+                    | No Self-Approval (Creator != Reviewer)   |
+                    | SHA-256 Chained Immutable Audit Log      |
+                    | Brand Governance Certificate Export      |
+                    +------------------------------------------+
 ```
 
-#### Linux / macOS (bash)
-```bash
-# Navigate into repository
-cd brandsentinel
+---
 
-# Create and activate Python virtual environment
-python3 -m venv .venv
+## The Three Hackathon Improvements
+
+### Improvement I-1: Intent-Preserving Suggestion Engine
+- Generates up to 3 verified alternatives per finding using active KB preferred terms, approved claims, and contextual minimal rewrites.
+- **3-Branch Verification:** Slices each candidate fix into the text and runs the full pipeline:
+  1. The original violation must be completely resolved.
+  2. No new blocker or major severity violations may be introduced.
+  3. Meaning preservation check ensures numbers and factual quantities outside the flagged span remain unmodified.
+- Surfaced in the UI with a distinct `verified: meaning preserved` badge and 1-click application.
+
+### Improvement I-2: Multi-Format Visual & Accessibility Review
+- **Palette Adherence:** CIELAB $\Delta E^*$ (CIE76 Euclidean distance) calculation against approved brand colors ($\Delta E^* \le 12.0$ matches; $> 15.0$ flagged).
+- **WCAG 2.2 AA Contrast:** Evaluates relative luminance contrast ratio against the statutory 4.5:1 standard.
+- **Alt-Text Audit:** Validates presence and descriptiveness on raster images, DOCX embedded drawings (`wp:docPr`), and PDF page rasters.
+- **Document Structure:** Detects heading-level skips (Heading 1 -> Heading 3), vague hyperlink anchors ("click here"), and tables missing assistive header rows (`tblHeader`).
+- **Transparent Accessibility Score (0-100):** Displayed with full itemized deductions breakdown (`-15` contrast, `-10` alt-text, `-10` heading skip, `-10` table header, `-5` title/language).
+
+### Improvement I-3: Governance Insights & Ambiguity Signal Engine
+- Evaluates four real operational signals across workspace activity:
+  1. **High Creator Dismissals:** Guidelines with $> 40\%$ dismissal rate (minimum sample size $\ge 3$).
+  2. **Active KB Conflicts:** Prohibited terms that are also listed as preferred, or facts with overlapping dates and contradictory values.
+  3. **Stale Facts:** Product specifications whose `valid_to` date has passed or unreviewed for $> 90$ days.
+  4. **AI-vs-Human Disagreement:** Findings flagged by automated models but dismissed by human reviewers as contextually permissible.
+- **1-Click Actionability:** `POST /insights/accept-clarification` clones the active KB version, applies the clarified policy, marks it active (`vNext`), deactivates the old version, and logs an immutable audit event.
+
+---
+
+## Seeded Demo Accounts
+
+All seeded demo accounts use the standard password: `Demo@12345`
+
+| Workspace | Role | Email | Best For Testing |
+|---|---|---|---|
+| **NovaFit** | Creator | `creator1@novafit.local` | Draft submission, sample loader, verified suggestions |
+| **NovaFit** | Reviewer | `reviewer1@novafit.local` | Escalation queue, four-eyes approval, signing |
+| **NovaFit** | Manager | `manager1@novafit.local` | Manager review queue, approval with notes |
+| **NovaFit** | Admin | `admin@novafit.local` | KB editing, Insights ambiguity detector, accept clarification |
+| **Lumen Bank** | Creator | `creator1@lumenbank.local` | Financial copy with missing APR disclaimers |
+| **Lumen Bank** | Reviewer | `reviewer1@lumenbank.local` | High-risk financial claims evaluation |
+| **Lumen Bank** | Manager | `manager1@lumenbank.local` | Regulatory review and change requests |
+| **Lumen Bank** | Admin | `admin@lumenbank.local` | Banking KB configuration |
+| **Aster University** | Creator | `creator1@aster.local` | Academic marketing, outdated accreditation facts |
+| **Aster University** | Reviewer | `reviewer1@aster.local` | Scholarly tone verification |
+| **Aster University** | Manager | `manager1@aster.local` | Convocation and admissions copy approval |
+| **Aster University** | Admin | `admin@aster.local` | Higher-ed KB configuration |
+
+---
+
+## Quickstart Guide
+
+### Option 1: Native Local Run (Windows, macOS, Linux)
+
+#### 1. Backend Setup
+```bash
+# Clone the repository
+git clone https://github.com/Pratheek-16/Brandsentinel.git
+cd Brandsentinel
+
+# Python Virtual Environment
+python -m venv .venv
+
+# Activate Virtual Environment:
+# On Windows PowerShell:
+.\.venv\Scripts\Activate.ps1
+# On Linux / macOS:
 source .venv/bin/activate
 
-# Install backend dependencies
-pip install -r backend/requirements.txt
+# Install dependencies
+pip install -r requirements.txt
 
-# Configure environment variables
-cp .env.example .env
-```
-
----
-
-### 2. Seed Demo Data & Brand Kits
-
-BrandSentinel includes three complete, fictional brand identities:
-1. **NovaFit** (Health & Fitness / Smart Wearables)
-2. **Lumen Bank** (Fintech / Regulated Banking)
-3. **Aster University** (Higher Education & Research)
-
-To initialize the SQLite database and seed all brand kits and user accounts:
-```powershell
-# Windows
-python scripts\seed_demo.py
-
-# Linux / macOS
+# Run database migrations and seed demo data
+alembic -c backend/alembic.ini upgrade head
 python scripts/seed_demo.py
+
+# Start Backend Server (runs on http://localhost:8000)
+python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
 ```
 
----
-
-### 3. Start the Backend API Server
-
-```powershell
-# Windows (PowerShell) & Linux/macOS
-python -m uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
-```
-- Interactive API Docs (Swagger): [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-- API Health Status: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
-
----
-
-### 4. Start the React Frontend
-
-Open a second terminal window:
-```powershell
+#### 2. Frontend Setup (in a separate terminal)
+```bash
 cd frontend
 npm install
-npm run dev
-```
-Open your browser at **[http://localhost:5173](http://localhost:5173)**.
-
-To build the frontend bundle for production:
-```powershell
 npm run build
+npm run dev
+# Frontend runs on http://localhost:5173
 ```
 
 ---
 
-## Demo Accounts & Role Separation
+### Option 2: Docker Setup (Self-Contained)
 
-All demo accounts use the standard demo password: **`Demo@12345`**
-
-Each brand kit workspace contains five discrete accounts:
-
-| Workspace / Brand | Role | Email | Capabilities |
-| :--- | :--- | :--- | :--- |
-| **NovaFit** | **Admin** | `admin@novafit.local` | Manage guidelines, import rules, view ambiguity metrics |
-| **NovaFit** | **Manager** | `manager@novafit.local` | Review submissions, approve low-risk content, request changes |
-| **NovaFit** | **Authorised Reviewer** | `reviewer@novafit.local` | Mandatory sign-off for high-risk findings and health claims |
-| **NovaFit** | **Creator 1** | `creator1@novafit.local` | Author content, accept/dismiss suggestions, submit for review |
-| **NovaFit** | **Creator 2** | `creator2@novafit.local` | Independent author (demonstrates no-self-approval rule) |
-| *Lumen Bank* | *(Same 5 Roles)* | `*@lumenbank.local` | Regulated banking brand kit & strict APY disclaimer rules |
-| *Aster University* | *(Same 5 Roles)* | `*@asteruniversity.local` | Academic guidelines, census statistics, Section 508 a11y |
-
-### Testing the No-Self-Approval Rule
-1. Log in as `creator1@novafit.local`.
-2. Create and submit a draft piece of content.
-3. Attempt to call `POST /content/{id}/approve` using Creator 1's token.
-4. **Result:** The system strictly denies the request (`403 Forbidden: Creator cannot approve their own content`).
-5. Log in as `manager@novafit.local` or `reviewer@novafit.local` to review, sign, and approve the submission.
-
----
-
-## AI Providers: Fallback & Real LLM Modes
-
-BrandSentinel is designed to run seamlessly with or without an external AI API key:
-
-- **Offline Mode (Default):** When `GEMINI_API_KEY` is not set in `.env`, the engine uses `MockProvider`. This in-process engine runs deterministic compliance checks across all 6 issue classes, tokenizes PII, calculates CIELAB color distances, and verifies suggestions with zero network calls. The UI and AI ledger display: `AI provider: mock`.
-- **Live Gemini Mode:** When `GEMINI_API_KEY` is set in `.env`, the engine activates `GeminiProvider` using Google Gemini 1.5 Pro/Flash to perform deep semantic inference, claim analysis, and structured JSON output.
-
----
-
-## Running the Automated Test Suite
-
-BrandSentinel features a 26-test automated suite covering data models, migrations, RBAC, workspace isolation, the no-self-approval rule, state machine transitions, redaction, and all three improvements:
-
-```powershell
-python -m pytest backend/tests -v
-```
-
-### PostgreSQL & pgvector Support (Docker)
-To execute tests against a live PostgreSQL and pgvector database:
-```powershell
-docker compose --profile postgres up -d
-pytest backend/tests
+```bash
+docker build -t brandsentinel .
+docker run -p 10000:10000 -e PORT=10000 brandsentinel
+# Access web app and API documentation at http://localhost:10000
 ```
 
 ---
 
-## BrandBench Benchmark Evaluation
+## Running the Verification Test Suite
 
-BrandSentinel includes **BrandBench v1.0**, a standard evaluation dataset consisting of **150 labelled test cases** covering tone, terminology, messaging, claims, accessibility, clean compliant samples, and prompt-injection attacks.
+All 46 unit and integration tests run deterministically:
 
-To run the benchmark suite and generate the live evaluation report:
-```powershell
+```bash
+# Run complete test suite
+python -m pytest backend/tests/ -v
+
+# Run BrandBench v2 held-out evaluation runner
 python benchmark/run_benchmark.py
 ```
-This writes the full report to **`benchmark/report.md`**, measuring:
-- **Precision:** 100.0%
-- **Recall:** 100.0%
-- **False Positive Rate:** 0.00%
-- **F1-Score:** 1.0000
-- **Median Latency (p50):** 0.19 ms
-- **Suggestion Pass Rate:** 100.0%
-- **Prompt Injection Defense:** 100.0% blocked
 
 ---
 
-## Optional: Installing Tesseract OCR (Windows)
+## Verification & Reliability Highlights
 
-If you plan to extract text from scanned images and PDFs:
-1. Download the Windows installer from [UB-Mannheim Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki).
-2. Install to `C:\Program Files\Tesseract-OCR`.
-3. Add `C:\Program Files\Tesseract-OCR` to your system `PATH`.
-4. If Tesseract is not installed, BrandSentinel degrades gracefully by skipping optical extraction and logging an advisory.
-
----
-
-## Documentation Index
-
-- [Architecture & System Design](file:///c:/Users/sreep/Desktop/psp/codezen-project/brandsentinel/docs/architecture.md)
-- [REST API Reference](file:///c:/Users/sreep/Desktop/psp/codezen-project/brandsentinel/docs/api.md)
-- [Privacy, Security & Compliance](file:///c:/Users/sreep/Desktop/psp/codezen-project/brandsentinel/docs/privacy-security.md)
-- [Testing & Benchmark Methodology](file:///c:/Users/sreep/Desktop/psp/codezen-project/brandsentinel/docs/testing.md)
-- [Limitations & Roadmap](file:///c:/Users/sreep/Desktop/psp/codezen-project/brandsentinel/docs/limitations-roadmap.md)
-- [Participant Contribution Statement](file:///c:/Users/sreep/Desktop/psp/codezen-project/brandsentinel/docs/contribution-statement.md)
-- [Disclosures and Licenses Ledger (`DISCLOSURES.md`)](file:///c:/Users/sreep/Desktop/psp/codezen-project/brandsentinel/DISCLOSURES.md)
-
----
-
-## License
-
-This project is licensed under the **MIT License** – see the `LICENSE` file for details.
-All third-party libraries and dependencies are listed with their respective permissive licenses in `DISCLOSURES.md`.
+- **46 Unit & Integration Tests Passing:** Across 14 test modules verifying RBAC, KB versioning, suggestion verification, visual scoring, ambiguity detection, Indian PII redaction, and startup security.
+- **BrandBench v2 Evaluation:** Evaluated on 60 novel held-out test cases across 4 brands with **86.8% Combined F1 Score** and **0.0% Prompt Injection Bypass Rate**.
+- **Cryptographic Tamper-Evidence:** All review decisions, KB updates, and findings dismissals are recorded in a SHA-256 hash-chained immutable audit log.
+- **Exportable Governance Certificate:** Downloadable Markdown, HTML, and JSON compliance certificate signed with a verification hash for regulatory archiving.
