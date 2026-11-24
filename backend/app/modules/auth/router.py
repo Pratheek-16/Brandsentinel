@@ -45,22 +45,15 @@ def signup(user: UserCreate, db: Session = Depends(session.get_db)):
     return LoginResponse(access_token=access_token, user=user_resp)
 
 @router.post("/login", response_model=LoginResponse)
-async def login(
-    request: Request,
+def login(
+    payload: Optional[LoginRequest] = None,
     email: Optional[str] = None,
     password: Optional[str] = None,
     db: Session = Depends(session.get_db),
 ):
     # Support both JSON payload and query parameters
-    req_email = email
-    req_password = password
-    if request.headers.get("content-type", "").startswith("application/json"):
-        try:
-            body = await request.json()
-            req_email = body.get("email") or req_email
-            req_password = body.get("password") or req_password
-        except Exception:
-            pass
+    req_email = payload.email if payload else email
+    req_password = payload.password if payload else password
 
     if not req_email or not req_password:
         raise HTTPException(status_code=400, detail="Email and password are required")

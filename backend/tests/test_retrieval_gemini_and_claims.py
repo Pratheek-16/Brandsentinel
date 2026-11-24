@@ -1,5 +1,6 @@
 import pytest
 import datetime
+from backend.app.core.datetime_utils import utc_now
 from fastapi.testclient import TestClient
 from backend.app.main import app
 from backend.app.db import session, models
@@ -79,7 +80,7 @@ def test_claim_ledger_evaluation():
         approved_text="Clinically validated 99.4% uptime reduction in downtime",
         evidence_ref="SOC2 Audit 2025",
         required_disclaimer="*Verified by independent audit.",
-        valid_to=datetime.datetime.utcnow() + datetime.timedelta(days=365),
+        valid_to=utc_now() + datetime.timedelta(days=365),
     )
     # 2. Expired claim
     claim_expired = models.Claim(
@@ -87,7 +88,7 @@ def test_claim_ledger_evaluation():
         approved_text="Rated #1 best fitness tracker in 2023",
         evidence_ref="Fitness Awards 2023",
         required_disclaimer=None,
-        valid_to=datetime.datetime.utcnow() - datetime.timedelta(days=100),
+        valid_to=utc_now() - datetime.timedelta(days=100),
     )
     db.add(claim_valid)
     db.add(claim_expired)

@@ -1,7 +1,131 @@
 @import "tailwindcss";
+@import "./styles/tokens.css";
 
 @layer base {
+  * {
+    border-color: var(--hairline);
+  }
+
   body {
-    @apply bg-slate-50 text-slate-900 font-sans antialiased;
+    background-color: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    background-image: var(--paper-grain);
+    background-repeat: repeat;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  h1, h2, h3, .font-serif {
+    font-family: var(--font-serif);
+    letter-spacing: -0.015em;
+  }
+
+  code, pre, .font-mono {
+    font-family: var(--font-mono);
+  }
+
+  /* Universal focus ring */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+/* =========================================================================
+   EDITORIAL PROOFING DESK UTILITIES
+   ========================================================================= */
+
+/* The Sheet */
+.proofing-sheet {
+  background-color: var(--sheet);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+  border-radius: 2px;
+  box-shadow: 0 1px 3px rgba(20, 23, 31, 0.04), 0 8px 24px -4px rgba(20, 23, 31, 0.06);
+}
+
+/* Wavy Severity Underlines */
+.wavy-underline-blocker {
+  text-decoration: underline wavy var(--severity-blocker);
+  text-underline-offset: 4px;
+  text-decoration-thickness: 2px;
+}
+
+.wavy-underline-major {
+  text-decoration: underline wavy var(--severity-major);
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1.5px;
+}
+
+.wavy-underline-minor {
+  text-decoration: underline wavy var(--severity-minor);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1.5px;
+}
+
+.wavy-underline-info {
+  text-decoration: underline wavy var(--severity-info);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1.5px;
+}
+
+/* Tracked Changes */
+.tracked-insertion {
+  background-color: var(--accent-surface);
+  color: var(--accent-ink);
+  text-decoration: none;
+  font-weight: 600;
+  padding: 0.1rem 0.35rem;
+  border-radius: 2px;
+  border-bottom: 1.5px solid var(--accent);
+}
+
+.tracked-deletion {
+  background-color: var(--severity-blocker-bg);
+  color: var(--severity-blocker);
+  text-decoration: line-through;
+  opacity: 0.85;
+  padding: 0.1rem 0.35rem;
+  border-radius: 2px;
+}
+
+/* Editorial Approval Stamp */
+.stamp-approved {
+  border: 2.5px solid var(--status-verified);
+  color: var(--status-verified);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding: 0.35rem 0.85rem;
+  border-radius: 2px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transform: rotate(-3deg);
+  box-shadow: 0 0 0 1px var(--status-verified) inset;
+  transition: transform 300ms ease-out;
+}
+
+/* Redacted Bar */
+.redacted-bar {
+  background-color: var(--ink);
+  color: transparent;
+  user-select: none;
+  border-radius: 2px;
+  padding: 0 0.25rem;
+  display: inline-block;
+  cursor: help;
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

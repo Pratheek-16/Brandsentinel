@@ -53,10 +53,16 @@ Thumbs.db
 # Misc
 *.sqlite3
 *.db
+*.db-journal
+*.db-wal
+*.db-shm
 node_modules/
 dist/
 uploads/
+backend/uploads/
 .pytest_cache/
+playwright-report/
+test-results/
 
 # Render and deployment
 .render/

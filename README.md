@@ -5,9 +5,9 @@
 [![React](https://img.shields.io/badge/React-19.3-61DAFB.svg)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.2-3178C6.svg)](https://www.typescriptlang.org)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.3-38B2AC.svg)](https://tailwindcss.com)
-[![Test Suite](https://img.shields.io/badge/Tests-46%20Passed-brightgreen.svg)](backend/tests)
-[![Benchmark F1](https://img.shields.io/badge/BrandBench%20v2%20F1-86.8%25-blue.svg)](benchmark/report.md)
-[![SUS Score](https://img.shields.io/badge/Usability%20SUS-87.5%20(Grade%20A)-success.svg)](docs/research/summary.md)
+[![Test Suite](https://img.shields.io/badge/Tests-55%20Passed-brightgreen.svg)](backend/tests)
+[![Benchmark F1](https://img.shields.io/badge/BrandBench%20v3%20F1-97.3%25-blue.svg)](benchmark/report.md)
+[![User Research Status](https://img.shields.io/badge/User%20Research-Protocol%20Ready-blueviolet.svg)](docs/research/status.md)
 
 **BrandSentinel** is an intelligent, pre-publication brand-governance and compliance platform built for the **Inkloom AI Brand-Governance Hackathon (Round 3: "The Finish")**.
 
@@ -19,9 +19,9 @@ It enables marketing, copy, and legal review teams to audit pre-publication text
 
 - **Round 3 Final Report:** [`docs/round3-report.md`](docs/round3-report.md) (~8 pages: Problem, Users, Architecture, 3 Improvements, Reliability, Security, Roadmap)
 - **Live Judging Walkthrough Script:** [`docs/demo-script.md`](docs/demo-script.md) (Step-by-step walkthrough for all personas)
-- **BrandBench v2 Evaluation Report:** [`benchmark/report.md`](benchmark/report.md) (60 held-out cases, 0.0% injection bypass, F1 86.8%)
+- **BrandBench v3 Evaluation Report:** [`benchmark/report.md`](benchmark/report.md) (160 held-out cases, 42.5% clean true negatives, 0.0% injection bypass, F1 97.3%, Precision 96.8%, Recall 97.8%)
 - **Accessibility & WCAG 2.2 AA Audit:** [`docs/accessibility.md`](docs/accessibility.md) (Contrast, focus, ARIA, and asset inspector specs)
-- **User Research & SUS Summary:** [`docs/research/summary.md`](docs/research/summary.md) (N=5 pilot participants, SUS 87.5, median task times)
+- **User Research & Testing Status:** [`docs/research/status.md`](docs/research/status.md) (Honest status: structured testing unperformed; protocol and task guides ready in `docs/research/protocol.md`)
 - **Changes Since Round 2:** [`docs/changes-since-round-2.md`](docs/changes-since-round-2.md) (Commit-by-commit changelog)
 - **Responsible Design & Privacy:** [`docs/responsible-design.md`](docs/responsible-design.md) (Redaction, human agency, no dark patterns)
 - **Limitations & 12-Month Roadmap:** [`docs/limitations-roadmap.md`](docs/limitations-roadmap.md) (Honest known boundaries and phased plans)

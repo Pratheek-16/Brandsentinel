@@ -3,6 +3,7 @@ from .base import AIProvider
 from ..deterministic.checks import run_deterministic_checks
 
 class MockProvider(AIProvider):
+    is_mock: bool = True
     def generate_json(self, prompt: str, schema: dict, purpose: str) -> dict:
         """Run deterministic checks on the prompt and return findings.
         The schema argument is ignored because we always produce the

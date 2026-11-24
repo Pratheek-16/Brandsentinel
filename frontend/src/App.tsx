@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Header } from './components/Header';
+import { NavigationRail } from './components/NavigationRail';
+import { PageTopStrip, WorkflowStep } from './components/PageTopStrip';
 import { LoginScreen } from './components/LoginScreen';
 import { ContentEditor } from './components/ContentEditor';
 import { ReviewScreen } from './components/ReviewScreen';
@@ -69,52 +70,141 @@ export const App: React.FC = () => {
 
   if (loadingSession) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center text-slate-400 text-sm font-mono">
-        Authenticating BrandSentinel workspace session...
+      <div
+        className="min-h-screen flex items-center justify-center text-xs font-mono"
+        style={{
+          backgroundColor: 'var(--paper)',
+          color: 'var(--graphite)',
+          backgroundImage: 'var(--paper-grain)',
+        }}
+      >
+        <span>Opening BrandSentinel proofing desk session...</span>
       </div>
     );
   }
 
+  if (!currentUser) {
+    return (
+      <LoginScreen
+        onLoginSuccess={handleLoginSuccess}
+        brand={brand}
+        onSelectBrand={handleBrandChange}
+      />
+    );
+  }
+
+  // Derive page metadata for in-page Top Strip
+  const getPageMeta = (): {
+    title: string;
+    category: string;
+    step?: WorkflowStep;
+    nextStepText?: string;
+  } => {
+    switch (activeTab) {
+      case 'submissions':
+        return {
+          title: 'Drafts & proofing desk',
+          category: 'Authoring',
+          step: 'draft',
+          nextStepText:
+            'Write or paste copy on the sheet, or upload an asset, then click "Check draft".',
+        };
+      case 'review':
+        return {
+          title: 'The proofing desk',
+          category: 'Editorial review',
+          step: 'checked',
+          nextStepText:
+            'Review margin annotation cards, accept or edit suggested rewrites, then submit for sign-off.',
+        };
+      case 'kb':
+        return {
+          title: 'Brand rules & knowledge base',
+          category: 'Governance rules',
+          nextStepText:
+            'Manage approved brand facts, terminology, and test sentences live against active rules.',
+        };
+      case 'vision':
+        return {
+          title: 'Visual & color compliance',
+          category: 'Asset audit',
+          nextStepText:
+            'Upload creative images to verify CIE2000 palette distances and WCAG 2.2 contrast.',
+        };
+      case 'audit':
+        return {
+          title: 'Cryptographic audit ledger',
+          category: 'Provenance',
+          nextStepText:
+            'Verify SHA-256 sequential block hashes to guarantee platform tamper resistance.',
+        };
+      case 'insights':
+        return {
+          title: 'Governance insights & ambiguity',
+          category: 'Intelligence',
+          nextStepText:
+            'Review pass rates and accept suggested rule clarifications to eliminate ambiguity.',
+        };
+      default:
+        return {
+          title: 'BrandSentinel console',
+          category: 'Workspace',
+        };
+    }
+  };
+
+  const pageMeta = getPageMeta();
+
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
-      <Header
+    <div
+      className="h-screen w-screen overflow-hidden flex flex-row"
+      style={{
+        backgroundColor: 'var(--paper)',
+        backgroundImage: 'var(--paper-grain)',
+        color: 'var(--ink)',
+      }}
+    >
+      {/* Editorial Left Rail - Permanently fixed and docked to viewport */}
+      <NavigationRail
         user={currentUser}
-        onLogout={handleLogout}
         brand={brand}
         onSelectBrand={handleBrandChange}
         currentTab={activeTab}
         onSelectTab={setActiveTab}
+        onLogout={handleLogout}
       />
 
-      <main className="flex-1 pb-16" id="main-content">
-        {!currentUser ? (
-          <LoginScreen
-            onLoginSuccess={handleLoginSuccess}
-            brand={brand}
-            onSelectBrand={handleBrandChange}
-          />
-        ) : (
-          <div>
-            {activeTab === 'submissions' && (
-              <ContentEditor
-                brand={brand}
-                onReviewCreated={handleReviewCreated}
-              />
-            )}
-            {activeTab === 'review' && (
-              <ReviewScreen
-                contentId={selectedContentId || 1}
-                currentUser={currentUser}
-                onRefreshContent={() => {}}
-              />
-            )}
-            {activeTab === 'kb' && <KnowledgeBaseScreen />}
-            {activeTab === 'vision' && <VisionInspectorScreen />}
-            {activeTab === 'audit' && <AuditTrailScreen />}
-            {activeTab === 'insights' && <InsightsScreen />}
-          </div>
-        )}
-      </main>
+      {/* Main Editorial Canvas - Scrolls independently on the right */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
+        <PageTopStrip
+          title={pageMeta.title}
+          category={pageMeta.category}
+          currentStep={pageMeta.step}
+          nextStepText={pageMeta.nextStepText}
+          onHelpClick={() => {
+            alert(
+              'BrandSentinel Proofing Desk:\n• J / K: Navigate margin annotations\n• A: Apply verified fix\n• E: Custom edit\n• D: Dismiss with justification\n• PII is always masked prior to LLM evaluation.'
+            );
+          }}
+        />
+
+        <main className="flex-1 pb-16 overflow-y-auto" id="main-content">
+          {activeTab === 'submissions' && (
+            <ContentEditor brand={brand} onReviewCreated={handleReviewCreated} />
+          )}
+          {activeTab === 'review' && (
+            <ReviewScreen
+              contentId={selectedContentId || 1}
+              currentUser={currentUser}
+              onRefreshContent={() => {}}
+            />
+          )}
+          {activeTab === 'kb' && <KnowledgeBaseScreen />}
+          {activeTab === 'vision' && <VisionInspectorScreen />}
+          {activeTab === 'audit' && <AuditTrailScreen />}
+          {activeTab === 'insights' && <InsightsScreen />}
+        </main>
+      </div>
     </div>
   );
 };

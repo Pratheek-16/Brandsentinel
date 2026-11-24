@@ -1,0 +1,91 @@
+/* =========================================================================
+   BRANDSENTINEL: "THE PROOFING DESK" DESIGN SYSTEM TOKENS
+   Editorial Proofing Aesthetic: Paper, Ink, Hairline, Sentinel Teal
+   ========================================================================= */
+
+@import "@fontsource/fraunces/400.css";
+@import "@fontsource/fraunces/600.css";
+@import "@fontsource/fraunces/700.css";
+@import "@fontsource/fraunces/400-italic.css";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
+
+:root {
+  /* Surface & Ink */
+  --paper: #F6F1E7;
+  --sheet: #FBF8F1;
+  --ink: #14171F;
+  --graphite: #3A4150;
+  --muted: #6B7280;
+  --hairline: #D9D2C3;
+  --hairline-subtle: #E8E2D5;
+
+  /* Sentinel Accent */
+  --accent: #0E7C7B;
+  --accent-ink: #0A5958;
+  --accent-surface: #E9F4F4;
+  --accent-hover: #0B6B6A;
+
+  /* Severity Tokens */
+  --severity-blocker: #B3261E;
+  --severity-blocker-bg: #FDF2F2;
+  --severity-major: #C26A00;
+  --severity-major-bg: #FEF7ED;
+  --severity-minor: #7A6A00;
+  --severity-minor-bg: #FEFCE8;
+  --severity-info: #3B5B8C;
+  --severity-info-bg: #F0F5FA;
+
+  /* Status Tokens */
+  --status-verified: #2E7D32;
+  --status-verified-bg: #E8F5E9;
+  --status-pending: #8A6D00;
+  --status-pending-bg: #FEF9E7;
+  --status-rejected: #B3261E;
+  --status-rejected-bg: #FDF2F2;
+
+  /* Typography */
+  --font-serif: 'Fraunces', Georgia, serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Noise pattern data uri (3.5% opacity paper grain) */
+  --paper-grain: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.035'/%3E%3C/svg%3E");
+}
+
+/* Dark Mode: "Night Desk" (Softened Warm Slate & Charcoal - never harsh pitch-black) */
+.dark {
+  --paper: #1F252E;
+  --sheet: #29313D;
+  --ink: #F5F2EB;
+  --graphite: #C8D1DC;
+  --muted: #95A1B2;
+  --hairline: #3E4957;
+  --hairline-subtle: #323A46;
+
+  --accent: #1FBCAE;
+  --accent-ink: #54E5D7;
+  --accent-surface: #1B3C3E;
+  --accent-hover: #26D4C4;
+
+  --severity-blocker: #FF6B6B;
+  --severity-blocker-bg: #3E1E22;
+  --severity-major: #FFB347;
+  --severity-major-bg: #3F2B1A;
+  --severity-minor: #E5EE82;
+  --severity-minor-bg: #37371D;
+  --severity-info: #7EC1FF;
+  --severity-info-bg: #1B2D44;
+
+  --status-verified: #7AD97E;
+  --status-verified-bg: #1C3B22;
+  --status-pending: #FFE054;
+  --status-pending-bg: #3B3518;
+  --status-rejected: #FF6B6B;
+  --status-rejected-bg: #3E1E22;
+
+  --paper-grain: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.02'/%3E%3C/svg%3E");
+}

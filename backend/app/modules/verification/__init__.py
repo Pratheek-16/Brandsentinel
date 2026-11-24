@@ -225,8 +225,10 @@ def verify_findings(
             r_s = r["span"]["start"]
             r_e = r["span"]["end"]
             if not (f_e <= r_s or f_s >= r_e):
-                overlapping_idx = idx
-                break
+                # Only treat as conflicting overlap if exact same span OR same category
+                if (f_s == r_s and f_e == r_e) or (f.get("category") == r.get("category")):
+                    overlapping_idx = idx
+                    break
 
         if overlapping_idx == -1:
             resolved.append(f)

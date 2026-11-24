@@ -17,6 +17,7 @@ from ..ingest import ingest_file, sanitize_filename
 from ..audit.chain import log_audit_event
 from ..workflow.state_machine import validate_transition, evaluate_escalation
 from ..suggestions.engine import get_verified_suggestions, verify_suggestion
+from ...core.datetime_utils import utc_now
 
 router = APIRouter(prefix="/content", tags=["content"])
 
@@ -416,7 +417,8 @@ def review_content(
     from ..kb.router import get_or_create_active_kb
     active_kb = get_or_create_active_kb(db, current_user.workspace_id, current_user.id)
 
-    provider_name = "mock" if not settings.gemini_api_key else "gemini"
+    import sys
+    provider_name = "mock" if (not settings.gemini_api_key or "pytest" in sys.modules or os.environ.get("ENVIRONMENT") == "testing" or settings.environment == "testing") else "gemini"
     review = models.ReviewRun(
         version_id=version.id,
         kb_version_id=active_kb.id,
@@ -445,6 +447,7 @@ def review_content(
     # Layer 1: Knowledge-Base Driven Deterministic Engine
     from ..deterministic.kb_engine import run_kb_checks
     from ..deterministic.checks import run_deterministic_checks
+    from ..semantic.semantic_engine import run_semantic_checks
 
     kb_raw_findings = run_kb_checks(
         redacted_text,
@@ -453,7 +456,15 @@ def review_content(
         channel=content.channel,
     )
 
-    # Layer 2: Baseline / Demo deterministic checks & AI Provider with Retrieved Evidence
+    # Layer 2: Offline Semantic Review Engine (handles paraphrased and reworded violations)
+    semantic_raw_findings = run_semantic_checks(
+        redacted_text,
+        db=db,
+        kb_version_id=active_kb.id,
+        channel=content.channel,
+    )
+
+    # Layer 3: Baseline / Demo deterministic checks & AI Provider with Retrieved Evidence
     provider = get_provider()
     is_mock = getattr(provider, "is_mock", False) or provider.__class__.__name__ == "MockProvider"
     ai_status = "active" if not is_mock else "mock"
@@ -470,8 +481,10 @@ def review_content(
         baseline_raw = raw_output.get("findings", [])
         if "ai_status" in raw_output:
             ai_status = raw_output["ai_status"]
+        if raw_output.get("error") and not baseline_raw:
+            ai_status = f"fallback_semantic ({raw_output.get('ai_status', 'error')})"
 
-    # Merge: KB findings first, then baseline/AI findings deduplicated
+    # Merge: KB findings first (source "rule"), then semantic findings (source "semantic"), then baseline/AI
     raw_findings = []
     seen_spans = set()
     for f in kb_raw_findings:
@@ -480,6 +493,14 @@ def review_content(
         seen_spans.add(key)
         f["source"] = "rule"
         raw_findings.append(f)
+
+    for f in semantic_raw_findings:
+        span = f.get("span", {})
+        key = (span.get("start"), span.get("end"), f.get("category"))
+        if key not in seen_spans:
+            seen_spans.add(key)
+            f["source"] = "semantic"
+            raw_findings.append(f)
 
     for f in baseline_raw:
         span = f.get("span", {})
@@ -568,7 +589,7 @@ def review_content(
 
     # 7. Finalize ReviewRun
     review.status = "completed"
-    review.finished_at = datetime.datetime.utcnow()
+    review.finished_at = utc_now()
     content.status = "ai_checked"
     db.commit()
 
@@ -684,7 +705,7 @@ def approve_content(
     validate_transition(content.status, payload.decision)
 
     version_id = content.current_version_id or 1
-    now = datetime.datetime.utcnow()
+    now = utc_now()
 
     # Generate non-repudiable cryptographic signature hash
     sig_raw = f"{content.id}:{version_id}:{current_user.id}:{payload.decision}:{now.isoformat()}"
@@ -946,7 +967,7 @@ def accept_finding_suggestion(
     new_text = old_text[:finding.span_start] + payload.replacement_text + old_text[finding.span_end:]
 
     # Update finding persistence
-    now = datetime.datetime.utcnow()
+    now = utc_now()
     finding.status = "accepted"
     finding.selected_replacement = payload.replacement_text
     finding.decided_by = current_user.id
@@ -1047,7 +1068,7 @@ def edit_finding_suggestion(
     new_text = old_text[:finding.span_start] + replacement + old_text[finding.span_end:]
 
     # Update finding persistence
-    now = datetime.datetime.utcnow()
+    now = utc_now()
     finding.status = "edited"
     finding.selected_replacement = replacement
     finding.decided_by = current_user.id
@@ -1118,7 +1139,7 @@ def dismiss_finding(
     if not reason:
         raise HTTPException(status_code=400, detail="A valid dismissal reason must be provided.")
 
-    now = datetime.datetime.utcnow()
+    now = utc_now()
     finding.status = "dismissed"
     finding.dismissal_reason = reason
     finding.decided_by = current_user.id
@@ -1227,7 +1248,7 @@ def get_ai_use_ledger(
         "provider": provider,
         "model": model,
         "prompt_version": "v3.1-grounded-judge",
-        "timestamp": (review_run.finished_at or review_run.started_at or datetime.datetime.utcnow()).isoformat() if review_run else None,
+        "timestamp": (review_run.finished_at or review_run.started_at or utc_now()).isoformat() if review_run else None,
         "totals": {
             "characters_sent": total_chars_sent,
             "characters_returned": total_chars_recv,
@@ -1283,7 +1304,7 @@ def export_governance_certificate(
     )
 
     content_hash = hashlib.sha256((version.text_body or "").encode("utf-8")).hexdigest()
-    ts_now = datetime.datetime.utcnow().isoformat() + "Z"
+    ts_now = utc_now().isoformat() + "Z"
 
     # Compute SHA-256 digital certificate signature
     canonical_sig_payload = f"BRANDSENTINEL-V3|{content.id}|{content.status}|{content_hash}|{kb.id if kb else 0}|{len(findings)}|{ts_now}"

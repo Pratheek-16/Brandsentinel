@@ -62,7 +62,7 @@ def audit_test_setup():
     db.refresh(u_admin_a)
     db.refresh(u_creator_b)
 
-    return {
+    data = {
         "ws_a": ws_a,
         "ws_b": ws_b,
         "creator_a": u_creator_a,
@@ -71,6 +71,8 @@ def audit_test_setup():
         "admin_a": u_admin_a,
         "creator_b": u_creator_b,
     }
+    db.close()
+    return data
 
 def test_auth_real_credentials_and_me(audit_test_setup):
     client = TestClient(app)
@@ -146,9 +148,23 @@ def test_kb_version_cloning_and_activation(audit_test_setup):
 
 def test_finding_status_lifecycle_and_tracked_edits(audit_test_setup):
     client = TestClient(app)
+    admin_a = audit_test_setup["admin_a"]
+    admin_token = create_access_token({"sub": str(admin_a.id)})
     c_a = audit_test_setup["creator_a"]
     token = create_access_token({"sub": str(c_a.id)})
     headers = {"Authorization": f"Bearer {token}"}
+
+    # Ensure active KB has the banned term
+    client.post(
+        "/kb/terms",
+        json={
+            "preferred": "NovaBand Pro smart fitness tracker",
+            "banned": ["Nova Watch"],
+            "case_rule": "none",
+            "notes": "Official product name"
+        },
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
 
     # Create draft with banned terminology
     c_res = client.post(

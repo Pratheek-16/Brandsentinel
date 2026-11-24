@@ -18,6 +18,8 @@ import enum
 import datetime
 import hashlib
 
+from ..core.datetime_utils import utc_now
+
 Base = declarative_base()
 
 class RoleEnum(str, enum.Enum):
@@ -55,7 +57,7 @@ class KBVersion(Base):
     workspace_id = Column(Integer, ForeignKey("workspaces.id"), nullable=False)
     label = Column(String, nullable=False)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
     is_active = Column(Boolean, default=True)
     workspace = relationship("Workspace", back_populates="kb_versions")
     rules = relationship("Rule", back_populates="kb_version")
@@ -156,7 +158,7 @@ class ContentVersion(Base):
     file_ref = Column(String, nullable=True)
     content_hash = Column(String, nullable=False)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
     content = relationship("Content", back_populates="versions", foreign_keys=[content_id])
 
 class ReviewRun(Base):
@@ -164,7 +166,7 @@ class ReviewRun(Base):
     id = Column(Integer, primary_key=True, index=True)
     version_id = Column(Integer, ForeignKey("content_versions.id"), nullable=False)
     kb_version_id = Column(Integer, ForeignKey("kb_versions.id"), nullable=False)
-    started_at = Column(DateTime, default=datetime.datetime.utcnow)
+    started_at = Column(DateTime, default=utc_now)
     finished_at = Column(DateTime, nullable=True)
     provider = Column(String, default="mock")
     model = Column(String, default="mock")
@@ -204,7 +206,7 @@ class AIUsage(Base):
     segments_received = Column(Integer, nullable=False, default=0)
     redacted_fields = Column(JSON, nullable=True)
     redaction_count = Column(Integer, nullable=False, default=0)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
 class Comment(Base):
     __tablename__ = "comments"
@@ -214,7 +216,7 @@ class Comment(Base):
     finding_id = Column(Integer, ForeignKey("findings.id"), nullable=True)
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     body = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
     parent_id = Column(Integer, ForeignKey("comments.id"), nullable=True)
 
 class Approval(Base):
@@ -226,7 +228,7 @@ class Approval(Base):
     decision = Column(String, nullable=False)  # approved|changes_requested|rejected|escalated
     reason = Column(Text, nullable=True)
     decided_by = Column(Integer, ForeignKey("users.id"), nullable=False)
-    decided_at = Column(DateTime, default=datetime.datetime.utcnow)
+    decided_at = Column(DateTime, default=utc_now)
     signature_hash = Column(String, nullable=False)
 
 # Deprecated duplicate AIUsage model removed; using the earlier definition with __tablename__ = "ai_usages"
@@ -242,7 +244,7 @@ class AuditEvent(Base):
     payload_json = Column(JSON, nullable=True)
     prev_hash = Column(String, nullable=True)
     hash = Column(String, nullable=False)
-    ts = Column(DateTime, default=datetime.datetime.utcnow)
+    ts = Column(DateTime, default=utc_now)
 
 class Job(Base):
     __tablename__ = "jobs"

@@ -1,6 +1,0 @@
-participant_id,role,brand,cohort_type,task1_time,task2_time,task3_time,task4_time,task5_time,sus_score,cognitive_load,top_frustration,top_delight
-P01,Content Creator,NovaFit,Internal pilot (team/peer),82,110,65,55,38,87.5,3.2,Wanted multi-select on accepting fixes all at once,1-click verified replacement spliced directly into text without breaking formatting
-P02,Content Creator,Lumen Bank,Internal pilot (team/peer),95,124,70,62,42,82.5,4.0,Initial confusion between blocker and minor severity tags,Automatic detection of missing APR disclaimer on yield promotions
-P03,Brand Manager,NovaFit,Internal pilot (team/peer),75,98,48,45,30,92.5,2.5,Needed to reload page on first brand switch in dev,Accept clarification button automatically created snapshot v2 without losing rules
-P04,Compliance Reviewer,Lumen Bank,Internal pilot (team/peer),110,135,52,58,35,85.0,3.8,Tesseract OCR was missing locally before Docker fix,Cryptographic SHA-256 certificate output suitable for audit compliance
-P05,Marketing Designer,Aster University,Internal pilot (team/peer),88,85,60,50,32,90.0,2.8,Alt-text deduction should allow decorative image exemption,Transparent contrast scoring breakdown formula (100 - sum of deductions)

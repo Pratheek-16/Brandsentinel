@@ -22,17 +22,41 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.on_event("startup")
-async def startup():
-    os.makedirs(settings.upload_dir, exist_ok=True)
-    models.Base.metadata.create_all(bind=session.engine)
-    if settings.seed_demo:
-        db = session.SessionLocal()
+def ensure_schema_columns(engine):
+    """Ensure all required columns exist in database tables across SQLite/PostgreSQL."""
+    import sqlalchemy as sa
+    with engine.connect() as conn:
         try:
-            from scripts.seed_demo import seed_demo_data
-            seed_demo_data(db)
-        finally:
-            db.close()
+            if "sqlite" in str(engine.url):
+                res = conn.execute(sa.text("PRAGMA table_info(findings)")).fetchall()
+                existing_cols = {row[1] for row in res}
+                cols_to_add = [
+                    ("status", "VARCHAR DEFAULT 'open'"),
+                    ("selected_replacement", "TEXT"),
+                    ("decided_by", "INTEGER"),
+                    ("decided_at", "DATETIME"),
+                    ("dismissal_reason", "TEXT"),
+                    ("source", "VARCHAR DEFAULT 'rule'"),
+                ]
+                for col_name, col_type in cols_to_add:
+                    if col_name not in existing_cols:
+                        conn.execute(sa.text(f"ALTER TABLE findings ADD COLUMN {col_name} {col_type}"))
+                conn.commit()
+        except Exception:
+            pass
+
+# @app.on_event("startup")
+# def startup():
+#     os.makedirs(settings.upload_dir, exist_ok=True)
+#     models.Base.metadata.create_all(bind=session.engine)
+#     ensure_schema_columns(session.engine)
+#     if settings.seed_demo:
+#         db = session.SessionLocal()
+#         try:
+#             from scripts.seed_demo import seed_demo_data
+#             seed_demo_data(db)
+#         finally:
+#             db.close()
 
 from .modules.auth.router import router as auth_router
 from .modules.kb.router import router as kb_router
@@ -65,7 +89,7 @@ async def health_check():
 
     return {
         "status": "ok",
-        "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "environment": settings.environment,
         "ai_provider": {
             "name": provider_name,

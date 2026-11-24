@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Lock, UserCheck, AlertCircle, Building2, ChevronRight, Sparkles } from 'lucide-react';
+import { Lock, AlertCircle, Building2, BookOpen, UserCheck, ShieldCheck, ArrowRight } from 'lucide-react';
 import { api } from '../api';
-import { WorkspaceInfoWithUsers, DemoAccountInfo } from '../types';
+import { WorkspaceInfoWithUsers } from '../types';
+import { PilcrowShieldLogo } from './NavigationRail';
 
 interface LoginScreenProps {
   onLoginSuccess: (token: string, user: any) => void;
@@ -80,164 +81,331 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const displayAccounts = activeWs?.accounts?.length
     ? activeWs.accounts
     : [
-        { label: 'Creator 1', email: `creator1@${domain}.local`, role: 'creator' },
-        { label: 'Creator 2', email: `creator2@${domain}.local`, role: 'creator' },
+        { label: 'Creator', email: `creator1@${domain}.local`, role: 'creator' },
         { label: 'Manager', email: `manager@${domain}.local`, role: 'manager' },
         { label: 'Reviewer', email: `reviewer@${domain}.local`, role: 'reviewer' },
-        { label: 'Admin (Guardian)', email: `admin@${domain}.local`, role: 'admin' },
+        { label: 'Admin', email: `admin@${domain}.local`, role: 'admin' },
       ];
 
   const brandOptions = [
-    { name: 'NovaFit', tag: 'Health & Fitness', desc: 'Active lifestyle, direct-to-consumer athletic wear and wellness.' },
-    { name: 'Lumen Bank', tag: 'Fintech & Banking', desc: 'Strict regulatory financial disclosures, APR claims, FDIC compliance.' },
-    { name: 'Aster University', tag: 'Higher Education', desc: 'Academic excellence, faculty facts, tuition claims, formal style.' },
+    {
+      name: 'NovaFit',
+      tag: 'Athletics & DTC',
+      desc: 'Active lifestyle, direct-to-consumer athletic wear and wellness.',
+    },
+    {
+      name: 'Lumen Bank',
+      tag: 'Fintech & Banking',
+      desc: 'Strict regulatory financial disclosures, APR claims, FDIC compliance.',
+    },
+    {
+      name: 'Aster University',
+      tag: 'Higher Education',
+      desc: 'Academic citations, faculty facts, tuition claims, formal style.',
+    },
   ];
 
   return (
-    <div className="min-h-[88vh] flex items-center justify-center py-10 px-4 sm:px-6 lg:px-8 bg-slate-900 text-slate-100">
-      <div className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
-        {/* Left Column: Context & Trust Value */}
-        <div className="md:col-span-5 space-y-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center space-x-2 px-3 py-1 bg-blue-950/80 border border-blue-800 rounded-full text-xs font-semibold text-blue-400">
-              <ShieldCheck className="w-4 h-4 text-blue-400" />
-              <span>Evidence-Grounded Brand Governance</span>
-            </div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-white">
-              BrandSentinel
-            </h1>
-            <p className="text-sm text-slate-400 leading-relaxed">
-              Pre-publication brand integrity platform. Enforcing deterministic grounding, privacy-preserving PII redaction, verified intent rewrites, and immutable cryptographic sign-offs.
-            </p>
-          </div>
-
-          <div className="space-y-3 pt-2">
-            <div className="text-xs uppercase font-bold tracking-wider text-slate-400">
-              Select Brand Workspace
-            </div>
-            <div className="space-y-2">
-              {brandOptions.map((b) => (
-                <button
-                  key={b.name}
-                  type="button"
-                  onClick={() => handleBrandChange(b.name)}
-                  className={`w-full text-left p-3 rounded-lg border transition-all flex items-start justify-between ${
-                    selectedBrand.toLowerCase() === b.name.toLowerCase()
-                      ? 'border-blue-500 bg-slate-800/90 shadow-md ring-1 ring-blue-500'
-                      : 'border-slate-800 bg-slate-900/60 hover:bg-slate-800/40 text-slate-300'
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <Building2 className="w-4 h-4 text-blue-400" />
-                      <span className="font-semibold text-sm text-white">{b.name}</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 font-mono text-slate-300">
-                        {b.tag}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-400 mt-1">{b.desc}</p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-500 mt-1 shrink-0" />
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column: Authentication Card */}
-        <div className="md:col-span-7 bg-white text-slate-900 p-8 rounded-2xl shadow-2xl border border-slate-200">
+    <div
+      className="min-h-screen flex items-center justify-center p-4 sm:p-8"
+      style={{
+        backgroundColor: 'var(--paper)',
+        backgroundImage: 'var(--paper-grain)',
+      }}
+    >
+      <div className="max-w-5xl w-full grid grid-cols-1 md:grid-cols-12 gap-10 items-stretch">
+        {/* Left Column: Editorial Proofing Desk Purpose & Trust Pillars */}
+        <div
+          className="md:col-span-5 flex flex-col justify-between p-8 rounded-[2px] border"
+          style={{
+            backgroundColor: 'var(--sheet)',
+            borderColor: 'var(--hairline)',
+          }}
+        >
           <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-1 rounded">
-                Workspace: {selectedBrand}
-              </span>
-              <span className="text-xs text-slate-500 font-mono">Real SHA-256 JWT Auth</span>
+            {/* Custom SVG Pilcrow Logo & Editorial Wordmark */}
+            <div className="flex items-center gap-3 mb-6">
+              <div
+                className="p-2 rounded-[2px]"
+                style={{
+                  backgroundColor: 'var(--accent-surface)',
+                  color: 'var(--accent)',
+                }}
+              >
+                <PilcrowShieldLogo size={28} />
+              </div>
+              <div>
+                <span
+                  className="font-serif font-bold text-xl tracking-tight block leading-tight"
+                  style={{ color: 'var(--ink)' }}
+                >
+                  BrandSentinel
+                </span>
+                <span className="text-xs" style={{ color: 'var(--muted)' }}>
+                  The Proofing Desk
+                </span>
+              </div>
             </div>
-            <h2 className="mt-3 text-2xl font-bold tracking-tight text-slate-900">
-              Sign In to Console
-            </h2>
-            <p className="text-xs text-slate-500 mt-1">
-              Select a seeded demo persona or sign in with your enterprise credentials.
+
+            {/* Headline in Fraunces serif */}
+            <h1
+              className="text-2xl sm:text-3xl font-serif font-semibold leading-snug tracking-tight mb-4"
+              style={{ color: 'var(--ink)' }}
+            >
+              Check content against your approved brand facts before it goes public.
+            </h1>
+
+            <p className="text-sm leading-relaxed mb-8" style={{ color: 'var(--graphite)' }}>
+              An editorial proofing system that marks up drafts against grounded brand rules,
+              safeguards private data, and attaches immutable citations to every change.
             </p>
+
+            {/* 3 Reassurances */}
+            <div className="space-y-4 pt-2 border-t" style={{ borderColor: 'var(--hairline-subtle)' }}>
+              <div className="flex items-start gap-3">
+                <div
+                  className="p-1.5 rounded-[2px] mt-0.5"
+                  style={{
+                    backgroundColor: 'var(--accent-surface)',
+                    color: 'var(--accent)',
+                  }}
+                >
+                  <BookOpen size={16} />
+                </div>
+                <div>
+                  <h2 className="text-sm font-medium" style={{ color: 'var(--ink)' }}>
+                    Every finding cites its source
+                  </h2>
+                  <p className="text-xs mt-0.5 leading-relaxed" style={{ color: 'var(--muted)' }}>
+                    Exact rule text, knowledge-base version, and verifiable grounding trail.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div
+                  className="p-1.5 rounded-[2px] mt-0.5"
+                  style={{
+                    backgroundColor: 'var(--accent-surface)',
+                    color: 'var(--accent)',
+                  }}
+                >
+                  <UserCheck size={16} />
+                </div>
+                <div>
+                  <h2 className="text-sm font-medium" style={{ color: 'var(--ink)' }}>
+                    People approve
+                  </h2>
+                  <p className="text-xs mt-0.5 leading-relaxed" style={{ color: 'var(--muted)' }}>
+                    Clear two-tier editorial review with role separation and tamper-proof approval seals.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div
+                  className="p-1.5 rounded-[2px] mt-0.5"
+                  style={{
+                    backgroundColor: 'var(--accent-surface)',
+                    color: 'var(--accent)',
+                  }}
+                >
+                  <ShieldCheck size={16} />
+                </div>
+                <div>
+                  <h2 className="text-sm font-medium" style={{ color: 'var(--ink)' }}>
+                    Private data stays hidden
+                  </h2>
+                  <p className="text-xs mt-0.5 leading-relaxed" style={{ color: 'var(--muted)' }}>
+                    Personal and sensitive information is redacted before analysis begins.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Quick Demo Switcher */}
-          <div className="mt-5">
-            <label className="block text-xs font-bold uppercase text-slate-700 tracking-wider mb-2">
-              Fast Persona Switcher (Password: Demo@12345)
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {displayAccounts.map((acc: any) => {
-                const label = acc.label || acc.name || acc.email.split('@')[0];
-                const isSelected = email.toLowerCase() === acc.email.toLowerCase();
+          {/* Brand Workspace Selector */}
+          <div className="mt-8 pt-4 border-t" style={{ borderColor: 'var(--hairline-subtle)' }}>
+            <span className="block text-xs font-medium mb-2.5" style={{ color: 'var(--muted)' }}>
+              Brand workspace
+            </span>
+            <div className="grid grid-cols-3 gap-2">
+              {brandOptions.map((b) => {
+                const isSelected = selectedBrand.toLowerCase() === b.name.toLowerCase();
                 return (
                   <button
-                    key={acc.email}
+                    key={b.name}
                     type="button"
-                    onClick={() => handleSelectAccount(acc)}
-                    className={`p-2 rounded-lg border text-left transition-all ${
-                      isSelected
-                        ? 'border-blue-600 bg-blue-50/80 ring-1 ring-blue-600'
-                        : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700'
-                    }`}
+                    onClick={() => handleBrandChange(b.name)}
+                    className="p-2 text-left rounded-[2px] border transition-all"
+                    style={{
+                      backgroundColor: isSelected ? 'var(--accent-surface)' : 'var(--paper)',
+                      borderColor: isSelected ? 'var(--accent)' : 'var(--hairline)',
+                      color: isSelected ? 'var(--accent-ink)' : 'var(--graphite)',
+                    }}
                   >
-                    <div className="font-semibold text-xs text-slate-900 truncate capitalize">
-                      {label}
-                    </div>
-                    <div className="text-[10px] text-blue-700 font-bold uppercase mt-0.5">
-                      {acc.role}
-                    </div>
+                    <span className="block text-xs font-semibold truncate">{b.name}</span>
+                    <span className="block text-[10px] truncate" style={{ color: 'var(--muted)' }}>
+                      {b.tag}
+                    </span>
                   </button>
                 );
               })}
             </div>
           </div>
+        </div>
 
-          {error && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center space-x-2 text-xs text-red-700">
-              <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
-            <div>
-              <label htmlFor="auth-email" className="block text-xs font-bold uppercase text-slate-700">
-                Email Address
-              </label>
-              <input
-                id="auth-email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="auth-password" className="block text-xs font-bold uppercase text-slate-700">
-                Password
-              </label>
-              <input
-                id="auth-password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-              />
+        {/* Right Column: Editorial Sign-in Card */}
+        <div
+          className="md:col-span-7 p-8 rounded-[2px] border flex flex-col justify-between"
+          style={{
+            backgroundColor: 'var(--sheet)',
+            borderColor: 'var(--hairline)',
+            boxShadow: '0 4px 20px -2px rgba(20, 23, 31, 0.05)',
+          }}
+        >
+          <div>
+            <div className="flex items-center justify-between pb-3 border-b" style={{ borderColor: 'var(--hairline-subtle)' }}>
+              <span
+                className="text-xs font-mono px-2 py-0.5 rounded-[2px]"
+                style={{
+                  backgroundColor: 'var(--accent-surface)',
+                  color: 'var(--accent-ink)',
+                  border: '1px solid var(--accent)',
+                }}
+              >
+                Workspace: {selectedBrand}
+              </span>
+              <span className="text-xs" style={{ color: 'var(--muted)' }}>
+                Session credentials
+              </span>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex items-center justify-center space-x-2 py-2.5 px-4 rounded-lg shadow-sm text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-50"
+            <h2
+              className="mt-6 text-2xl font-serif font-semibold tracking-tight"
+              style={{ color: 'var(--ink)' }}
             >
-              <Lock className="w-4 h-4" />
-              <span>{loading ? 'Authenticating...' : 'Authenticate Session'}</span>
-            </button>
-          </form>
+              Sign in to your desk
+            </h2>
+            <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
+              Choose a quick-fill role below or enter your credentials.
+            </p>
+
+            {/* Quick-fill Role Chips */}
+            <div className="mt-5">
+              <span className="block text-xs font-medium mb-2" style={{ color: 'var(--graphite)' }}>
+                Quick-fill role chips
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {displayAccounts.map((acc: any) => {
+                  const label = acc.label || acc.name || acc.email.split('@')[0];
+                  const isSelected = email.toLowerCase() === acc.email.toLowerCase();
+                  return (
+                    <button
+                      key={acc.email}
+                      type="button"
+                      onClick={() => handleSelectAccount(acc)}
+                      className="p-2.5 rounded-[2px] border text-left transition-all"
+                      style={{
+                        backgroundColor: isSelected ? 'var(--accent-surface)' : 'var(--paper)',
+                        borderColor: isSelected ? 'var(--accent)' : 'var(--hairline)',
+                        color: isSelected ? 'var(--accent-ink)' : 'var(--graphite)',
+                      }}
+                    >
+                      <div className="font-semibold text-xs truncate capitalize">{label}</div>
+                      <div
+                        className="text-[10px] font-mono mt-0.5 capitalize truncate"
+                        style={{ color: isSelected ? 'var(--accent-ink)' : 'var(--muted)' }}
+                      >
+                        {acc.role}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {error && (
+              <div
+                className="mt-4 p-3 rounded-[2px] border flex items-center gap-2 text-xs"
+                style={{
+                  backgroundColor: 'var(--severity-blocker-bg)',
+                  borderColor: 'var(--severity-blocker)',
+                  color: 'var(--severity-blocker)',
+                }}
+              >
+                <AlertCircle size={15} className="shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            {/* Form */}
+            <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+              <div>
+                <label
+                  htmlFor="auth-email"
+                  className="block text-xs font-medium mb-1"
+                  style={{ color: 'var(--graphite)' }}
+                >
+                  Email address
+                </label>
+                <input
+                  id="auth-email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-[2px] border transition-colors focus:outline-none"
+                  style={{
+                    backgroundColor: 'var(--paper)',
+                    borderColor: 'var(--hairline)',
+                    color: 'var(--ink)',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="auth-password"
+                  className="block text-xs font-medium mb-1"
+                  style={{ color: 'var(--graphite)' }}
+                >
+                  Password
+                </label>
+                <input
+                  id="auth-password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-[2px] border transition-colors focus:outline-none"
+                  style={{
+                    backgroundColor: 'var(--paper)',
+                    borderColor: 'var(--hairline)',
+                    color: 'var(--ink)',
+                  }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-[2px] text-sm font-medium transition-all cursor-pointer disabled:opacity-50"
+                style={{
+                  backgroundColor: 'var(--accent)',
+                  color: '#ffffff',
+                }}
+              >
+                <Lock size={15} />
+                <span>{loading ? 'Authenticating...' : 'Open proofing desk'}</span>
+                <ArrowRight size={15} />
+              </button>
+            </form>
+          </div>
+
+          <div className="mt-6 pt-4 border-t text-center text-xs" style={{ borderColor: 'var(--hairline-subtle)', color: 'var(--muted)' }}>
+            <span>Seeded credentials with deterministic role segregation &amp; zero-knowledge audit chain.</span>
+          </div>
         </div>
       </div>
     </div>

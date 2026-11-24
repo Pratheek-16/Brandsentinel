@@ -7,6 +7,7 @@ from sqlalchemy import func
 
 from ...db import session, models
 from ...core.security import get_current_user, require_roles
+from ...core.datetime_utils import utc_now
 from ...modules.audit.chain import log_audit_event
 
 router = APIRouter(prefix="/insights", tags=["insights"])
@@ -58,6 +59,12 @@ def generate_clarification_proposal(signal_type: str, item: Dict[str, Any]) -> s
             f"Refine AI review boundary for rule '{code}': Add explicit negative examples and bounding context "
             f"so automated models do not flag permissible contextual variations."
         )
+    elif signal_type == "unused_rule":
+        code = item.get("code", "RULE")
+        return (
+            f"Review rule '{code}' relevance: Determine whether rule is obsolete or requires broader enforcement criteria."
+        )
+    return "Clarify guideline wording to eliminate operational ambiguity."
     return f"Update policy wording to resolve ambiguity in '{item.get('rule_code', 'rule')}'."
 
 
@@ -130,7 +137,7 @@ def get_insights_summary(
     contents_by_channel = {ch or "unassigned": count for ch, count in channel_query}
 
     kb = db.query(models.KBVersion).filter(models.KBVersion.workspace_id == ws_id, models.KBVersion.is_active == True).first()
-    now = datetime.datetime.utcnow()
+    now = utc_now()
     stale_facts_count = 0
     if kb:
         stale_facts_count = db.query(models.Fact).filter(models.Fact.kb_version_id == kb.id, models.Fact.valid_to < now).count()
@@ -173,7 +180,7 @@ def get_ambiguity_analysis(
     4. AI-vs-human disagreement signals
     """
     ws_id = current_user.workspace_id
-    now = datetime.datetime.utcnow()
+    now = utc_now()
 
     # Active KB
     kb = db.query(models.KBVersion).filter(models.KBVersion.workspace_id == ws_id, models.KBVersion.is_active == True).first()
@@ -244,8 +251,8 @@ def get_ambiguity_analysis(
             "sample_dismissal_reasons": stats["reasons"][:3],
         }
 
-        # Threshold: sample size >= 3 and dismissal rate > 40.0%
-        if surfaced >= 3 and dismissal_rate > 40.0:
+        # Threshold: sample size >= 3 and dismissal rate > 40.0% OR 100% dismissal with surfaced >= 1
+        if (surfaced >= 3 and dismissal_rate > 40.0) or (surfaced >= 1 and dismissed == surfaced):
             rule_data["status"] = "flagged_ambiguous"
             rule_data["recommendation"] = (
                 f"Rule '{code}' shows high creator dismissals ({dismissal_rate}% across {surfaced} instances). "
@@ -362,12 +369,29 @@ def get_ambiguity_analysis(
         signal["suggested_clarification"] = generate_clarification_proposal("ai_human_disagreement", signal)
         ai_disagreement_signals.append(signal)
 
+    # 5. Unused rules in active KB
+    unused_rules = []
+    if kb:
+        active_rules = db.query(models.Rule).filter(models.Rule.kb_version_id == kb.id).all()
+        for r in active_rules:
+            if r.code not in rule_stats and r.category not in rule_stats:
+                u_item = {
+                    "signal_type": "unused_rule",
+                    "code": r.code,
+                    "category": r.category,
+                    "text": r.text,
+                    "description": f"Rule '{r.code}' has never been triggered across any content reviews.",
+                }
+                u_item["suggested_clarification"] = generate_clarification_proposal("unused_rule", u_item)
+                unused_rules.append(u_item)
+
     # Compile all signals
     all_signals = []
     all_signals.extend(flagged_rules)
     all_signals.extend(conflicting_items)
     all_signals.extend(stale_facts)
     all_signals.extend(ai_disagreement_signals)
+    all_signals.extend(unused_rules)
 
     health_status = "healthy"
     if len(flagged_rules) > 0 or len(conflicting_items) > 0 or len(stale_facts) > 0:
@@ -385,6 +409,7 @@ def get_ambiguity_analysis(
             "conflicting_items_count": len(conflicting_items),
             "stale_facts_count": len(stale_facts),
             "ai_disagreements_count": len(ai_disagreement_signals),
+            "unused_rules_count": len(unused_rules),
         },
         "all_signals": all_signals,
         "flagged_rules": flagged_rules,
@@ -392,6 +417,7 @@ def get_ambiguity_analysis(
         "conflicting_items": conflicting_items,
         "stale_facts": stale_facts,
         "ai_disagreements": ai_disagreement_signals,
+        "unused_rules": unused_rules,
         "monitored_rules": monitored_rules,
     }
 
@@ -419,7 +445,7 @@ def accept_clarification(
 
     # Create new snapshot version
     label_suffix = payload.target_code or payload.term_preferred or payload.signal_type
-    new_label = f"Guidelines vNext ({label_suffix}) - {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+    new_label = f"Guidelines vNext ({label_suffix}) - {utc_now().strftime('%Y-%m-%d %H:%M')}"
     new_kb = models.KBVersion(
         workspace_id=ws_id,
         label=new_label,
@@ -464,7 +490,7 @@ def accept_clarification(
             if payload.new_valid_to:
                 fact_valid_to = payload.new_valid_to
             else:
-                fact_valid_to = datetime.datetime.utcnow() + datetime.timedelta(days=365)
+                fact_valid_to = utc_now() + datetime.timedelta(days=365)
             updated_fact = f.code
 
         db.add(models.Fact(

@@ -13,6 +13,7 @@ import re
 import datetime
 from typing import List, Dict, Any, Optional
 from rapidfuzz import fuzz
+from ...core.datetime_utils import utc_now
 
 CLAIM_TRIGGERS = [
     re.compile(r"\b(\d+%\s+(?:faster|better|effective|satisfaction|uptime|reduction|increase|cheaper))\b", re.IGNORECASE),
@@ -44,7 +45,7 @@ def evaluate_claims(
 ) -> List[Dict[str, Any]]:
     extracted = extract_candidate_claims(content_text)
     ledger = []
-    now = datetime.datetime.utcnow()
+    now = utc_now()
 
     for item in extracted:
         claim_str = item["claim_text"]

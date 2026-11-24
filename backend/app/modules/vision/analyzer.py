@@ -219,6 +219,68 @@ def match_logo_template(
     return bool(max_corr >= threshold), float(round(max(0.0, max_corr), 3))
 
 
+def check_logo_usage(
+    target_img: Image.Image,
+    template_img: Image.Image,
+    min_width: int = 32,
+    min_height: int = 24,
+    aspect_ratio_tolerance: float = 0.15,
+) -> Dict[str, Any]:
+    """Check logo presence, stretch/aspect ratio distortion, and minimum clearance size."""
+    tmpl_w, tmpl_h = template_img.size
+    expected_ar = tmpl_w / max(1, tmpl_h)
+
+    # 1. Check template minimum size itself
+    if tmpl_w < min_width or tmpl_h < min_height:
+        return {
+            "status": "violation",
+            "issue": "too_small",
+            "message": f"Logo asset dimensions ({tmpl_w}x{tmpl_h}px) are below minimum recommended clearance size ({min_width}x{min_height}px).",
+            "detected": True,
+            "deduction": {"item": "Logo Below Minimum Size", "points": -5, "evidence_id": "LOGO-TOO-SMALL"},
+        }
+
+    # 2. Check if target image is smaller than template or distorted
+    tgt_w, tgt_h = target_img.size
+    if tgt_w < tmpl_w or tgt_h < tmpl_h:
+        actual_ar = tgt_w / max(1, tgt_h)
+        ar_diff = abs(actual_ar - expected_ar) / expected_ar
+        if ar_diff > aspect_ratio_tolerance:
+            return {
+                "status": "violation",
+                "issue": "stretched",
+                "message": f"Logo aspect ratio ({actual_ar:.2f}) is distorted by {ar_diff*100:.1f}% compared to original logo template ({expected_ar:.2f}).",
+                "detected": True,
+                "deduction": {"item": "Logo Aspect Ratio Distorted", "points": -10, "evidence_id": "LOGO-STRETCHED"},
+            }
+        return {
+            "status": "violation",
+            "issue": "too_small",
+            "message": f"Logo rendered in asset ({tgt_w}x{tgt_h}px) is below minimum required size of {min_width}px.",
+            "detected": True,
+            "deduction": {"item": "Logo Below Minimum Size", "points": -5, "evidence_id": "LOGO-TOO-SMALL"},
+        }
+
+    # 3. Check template match
+    matched, score = match_logo_template(target_img, template_img)
+    if not matched:
+        return {
+            "status": "violation",
+            "issue": "missing",
+            "message": "Mandatory brand logo was not found in target image.",
+            "detected": False,
+            "match_score": score,
+            "deduction": {"item": "Mandatory Brand Logo Missing", "points": -15, "evidence_id": "LOGO-MISSING"},
+        }
+
+    return {
+        "status": "compliant",
+        "detected": True,
+        "match_score": score,
+        "message": "Brand logo verified with correct aspect ratio and clearance.",
+    }
+
+
 def calculate_accessibility_score(deductions: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Calculate transparent 0-100 Accessibility Score with deduction breakdown."""
     total_deductions = sum(abs(d.get("points", 0)) for d in deductions)
@@ -346,18 +408,33 @@ def analyze_image_brand_consistency(
         except Exception:
             ocr_text = ""
 
-    # Logo detection
+    # Logo detection & usage audit
     logo_detection = {"status": "skipped", "detected": None, "reason": "No logo template or brand name provided"}
+    logo_findings = []
     if logo_template_bytes:
         try:
             tmpl_img = Image.open(io.BytesIO(logo_template_bytes))
-            matched, score = match_logo_template(image, tmpl_img)
+            logo_eval = check_logo_usage(image, tmpl_img)
             logo_detection = {
                 "status": "completed",
-                "detected": matched,
-                "match_score": score,
+                "detected": logo_eval.get("detected"),
+                "issue": logo_eval.get("issue"),
+                "match_score": logo_eval.get("match_score"),
+                "message": logo_eval.get("message"),
                 "method": "OpenCV Template Matching" if HAS_CV2 else "NumPy Cross-Correlation",
             }
+            if logo_eval.get("status") == "violation":
+                deduction = logo_eval.get("deduction")
+                if deduction:
+                    deductions.append(deduction)
+                logo_findings.append({
+                    "category": "visual_consistency",
+                    "severity": "major" if logo_eval.get("issue") in ("missing", "stretched") else "minor",
+                    "confidence": 0.95,
+                    "evidence_id": deduction.get("evidence_id") if deduction else "LOGO-VIOLATION",
+                    "reason": logo_eval.get("message"),
+                    "suggestion": "Restore original logo asset without stretching, ensuring minimum 32px display clearance.",
+                })
         except Exception as e:
             logo_detection = {"status": "error", "detected": None, "reason": str(e)}
     elif brand_name and ocr_info["ocr_available"] and ocr_text:
@@ -370,7 +447,7 @@ def analyze_image_brand_consistency(
         }
 
     score_result = calculate_accessibility_score(deductions)
-    all_findings = palette_findings + contrast_findings + alt_findings
+    all_findings = palette_findings + contrast_findings + alt_findings + logo_findings
 
     return {
         "asset_metadata": {

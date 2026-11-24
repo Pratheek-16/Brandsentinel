@@ -10,6 +10,7 @@ import datetime
 from typing import Dict, Any, Tuple
 from sqlalchemy.orm import Session
 from ...db import models
+from ...core.datetime_utils import utc_now
 
 GENESIS_HASH = "0" * 64
 
@@ -42,7 +43,7 @@ def log_audit_event(
         .first()
     )
     prev_hash = last_event.hash if last_event else GENESIS_HASH
-    now = datetime.datetime.utcnow()
+    now = utc_now()
     ts_iso = now.isoformat()
 
     h = compute_event_hash(

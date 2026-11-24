@@ -10,6 +10,7 @@ import datetime
 import re
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
+from ...core.datetime_utils import utc_now
 
 def cosine_similarity(v1: List[float], v2: List[float]) -> float:
     dot = sum(a * b for a, b in zip(v1, v2))
@@ -86,7 +87,7 @@ class VectorStore:
         """
         from ...db import models
         query_tokens = tokenize(segment_text)
-        now = datetime.datetime.utcnow()
+        now = utc_now()
         candidates = []
 
         # 1. Rules

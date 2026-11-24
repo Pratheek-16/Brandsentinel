@@ -37,6 +37,28 @@ def get_improvements_test_user():
         db.commit()
         db.refresh(creator)
 
+    # Ensure active KB and test rule exist so findings are grounded in this workspace
+    kb = db.query(models.KBVersion).filter(models.KBVersion.workspace_id == ws.id, models.KBVersion.is_active == True).first()
+    if not kb:
+        kb = models.KBVersion(workspace_id=ws.id, label="Improvements KB v1", created_by=creator.id, is_active=True)
+        db.add(kb)
+        db.commit()
+        db.refresh(kb)
+
+    rule = db.query(models.Rule).filter(models.Rule.kb_version_id == kb.id, models.Rule.code == "NF-CLAIM-01").first()
+    if not rule:
+        rule = models.Rule(
+            kb_version_id=kb.id,
+            code="NF-CLAIM-01",
+            category="claim",
+            text="Prohibited medical or unconditional guarantee claim.",
+            severity_default="blocker",
+            examples_bad=["100% satisfaction guaranteed", "guaranteed to burn"],
+            examples_good=["designed to support your wellness goals"],
+        )
+        db.add(rule)
+        db.commit()
+
     return ws, creator
 
 def test_improvement_1_suggestion_engine_and_actions():
@@ -142,9 +164,30 @@ def test_improvement_2_visual_consistency_and_accessibility():
 
 def test_improvement_3_insights_and_ambiguity_detector():
     client = TestClient(app)
-    _, creator = get_improvements_test_user()
+    ws, creator = get_improvements_test_user()
     token = create_access_token({"sub": str(creator.id)})
     headers = {"Authorization": f"Bearer {token}"}
+
+    # Ensure at least one content item is reviewed and dismissed in this workspace
+    # so ambiguity analysis has live operational signals to evaluate
+    c_res = client.post(
+        "/content/",
+        json={"title": "Ambiguity Test Draft", "body": "We promise 100% satisfaction guaranteed on all plans."},
+        headers=headers,
+    )
+    assert c_res.status_code == 201
+    c_id = c_res.json()["content_id"]
+    rev_res = client.post(f"/content/{c_id}/review", headers=headers)
+    assert rev_res.status_code in (200, 202)
+    findings = rev_res.json()["findings"]
+    assert len(findings) > 0
+    f_id = findings[0]["id"]
+    dismiss_res = client.post(
+        f"/content/{c_id}/findings/{f_id}/dismiss",
+        json={"reason": "Intentional artistic phrasing for creative campaign."},
+        headers=headers,
+    )
+    assert dismiss_res.status_code == 200
 
     # 1. Insights summary endpoint
     summary_res = client.get("/insights/summary", headers=headers)

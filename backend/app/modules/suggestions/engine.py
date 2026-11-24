@@ -184,6 +184,15 @@ def generate_candidate_suggestions(
                         candidates.append(f"{span_text} {c.required_disclaimer}")
                     break
 
+        elif category == "fact":
+            facts = db.query(models.Fact).filter(models.Fact.kb_version_id == kb_version_id).all()
+            for f in facts:
+                if f.code == ev_id or f.key.lower() in span_lower:
+                    fact_str = f"{f.value} {f.unit or ''}".strip()
+                    candidates.append(fact_str)
+                    candidates.append(f"up to {fact_str}")
+                    break
+
         elif category in ("tone", "messaging"):
             rules = db.query(models.Rule).filter(models.Rule.kb_version_id == kb_version_id, models.Rule.code == ev_id).all()
             for r in rules:
@@ -330,12 +339,14 @@ def verify_suggestion(
     # Re-run checks on spliced text
     if db and kb_version_id:
         from ..deterministic.kb_engine import run_kb_checks
+        from ..semantic.semantic_engine import run_semantic_checks
         raw_new_findings = run_kb_checks(spliced_text, db=db, kb_version_id=kb_version_id)
+        raw_sem_findings = run_semantic_checks(spliced_text, db=db, kb_version_id=kb_version_id)
         baseline_new = run_deterministic_checks(spliced_text)
         # Deduplicate
         seen = set()
         combined = []
-        for f in raw_new_findings + baseline_new:
+        for f in raw_new_findings + raw_sem_findings + baseline_new:
             k = (f["span"]["start"], f["span"]["end"], f["category"])
             if k not in seen:
                 seen.add(k)

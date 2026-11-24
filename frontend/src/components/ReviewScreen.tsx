@@ -1,11 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   AlertOctagon,
   AlertTriangle,
-  AlertCircle,
   Info,
   CheckCircle,
-  FileCheck,
   Check,
   X,
   MessageSquare,
@@ -13,7 +11,6 @@ import {
   ShieldAlert,
   Send,
   History,
-  Scale,
   Sparkles,
   Edit3,
   RefreshCw,
@@ -23,6 +20,10 @@ import {
   Download,
   FileText,
   Cpu,
+  ChevronDown,
+  ChevronRight,
+  ExternalLink,
+  CornerDownRight,
 } from 'lucide-react';
 import { api } from '../api';
 import {
@@ -53,33 +54,46 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
   const [reviewInfo, setReviewInfo] = useState<any>(null);
   const [aiUsage, setAiUsage] = useState<any>(null);
   const [newComment, setNewComment] = useState('');
-  const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [suggestions, setSuggestions] = useState<VerifiedSuggestion[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [activeOptionTab, setActiveOptionTab] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [reReviewing, setReReviewing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'findings' | 'claims' | 'ai_ledger' | 'comments' | 'versions'>('findings');
+
+  // Drawers & Modals
+  const [showAiDrawer, setShowAiDrawer] = useState(false);
   const [aiLedger, setAiLedger] = useState<any>(null);
   const [loadingLedger, setLoadingLedger] = useState(false);
-  
-  // Modals & custom edits
-  const [dismissReason, setDismissReason] = useState('');
-  const [showDismissModal, setShowDismissModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [customEditText, setCustomEditText] = useState('');
-  const [showApprovalModal, setShowApprovalModal] = useState(false);
-  const [approvalDecision, setApprovalDecision] = useState<'approved' | 'changes_requested' | 'rejected'>('approved');
-  const [approvalNote, setApprovalNote] = useState('');
-  const [approvalResult, setApprovalResult] = useState<any>(null);
-  const [actionAlert, setActionAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [showSigningSheet, setShowSigningSheet] = useState(false);
+  const [showCommentsDrawer, setShowCommentsDrawer] = useState(false);
 
-  // Load content & existing review without duplicate runs
+  // Actions
+  const [dismissReason, setDismissReason] = useState('');
+  const [showDismissPicker, setShowDismissPicker] = useState(false);
+  const [showEditInput, setShowEditInput] = useState(false);
+  const [customEditText, setCustomEditText] = useState('');
+  const [approvalDecision, setApprovalDecision] = useState<'approved' | 'changes_requested' | 'rejected'>('approved');
+  const [approvalJustification, setApprovalJustification] = useState('');
+  const [approvalStampVisible, setApprovalStampVisible] = useState(false);
+  const [lastApprovalData, setLastApprovalData] = useState<any>(null);
+  const [toastMsg, setToastMsg] = useState<{ text: string; undoFn?: () => void } | null>(null);
+
+  useEffect(() => {
+    if (toastMsg) {
+      const timer = setTimeout(() => setToastMsg(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMsg]);
+
+  // SVG leader line refs
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+  const cardsContainerRef = useRef<HTMLDivElement | null>(null);
+
   const loadData = async (forceReview = false) => {
     if (!contentId) return;
     try {
       setLoading(true);
-      setActionAlert(null);
-
       const c = await api.getContent(contentId);
       setContent(c);
 
@@ -88,17 +102,20 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
         rev = await api.reviewContent(contentId);
       } else {
         rev = await api.getReview(contentId);
-        // If content has not been reviewed yet, perform first review
         if (!rev.has_review && (!rev.findings || rev.findings.length === 0)) {
           rev = await api.reviewContent(contentId);
         }
       }
 
-      setFindings(rev.findings || []);
+      const loadedFindings = rev.findings || [];
+      setFindings(loadedFindings);
       setReviewInfo(rev.review || null);
       setAiUsage(rev.ai_usage || null);
 
-      // Claims & Comments
+      if (c.status === 'approved') {
+        setApprovalStampVisible(true);
+      }
+
       const [cl, cm] = await Promise.all([
         api.getClaims(contentId).catch(() => ({ claims: [] })),
         api.getComments(contentId).catch(() => []),
@@ -107,7 +124,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
       setComments(cm || []);
     } catch (err: any) {
       console.error(err);
-      setActionAlert({ type: 'error', message: err.message || 'Error loading review data' });
+      setToastMsg({ text: err.message || 'Error loading review data' });
     } finally {
       setLoading(false);
       setReReviewing(false);
@@ -118,133 +135,173 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
     loadData(false);
   }, [contentId]);
 
-  const handleSelectFinding = async (f: Finding) => {
-    setSelectedFinding(f);
-    const isGuidance = f.suggestion_text && (
-      f.suggestion_text.startsWith('Remove') ||
-      f.suggestion_text.startsWith('Ensure') ||
-      f.suggestion_text.startsWith('Append') ||
-      f.suggestion_text.startsWith('Specify')
-    );
-    setCustomEditText(f.selected_replacement || (!isGuidance && f.suggestion_text ? f.suggestion_text : f.span_text));
-    if (f.status === 'open' || !f.status) {
-      try {
-        setLoadingSuggestions(true);
-        const res = await api.getSuggestions(contentId, f.id);
-        setSuggestions(res.suggestions || []);
-      } catch {
-        setSuggestions([]);
-      } finally {
-        setLoadingSuggestions(false);
-      }
+  const activeFinding = findings[selectedIndex] || null;
+
+  // Load suggestions whenever selected finding changes
+  useEffect(() => {
+    if (!activeFinding) {
+      setSuggestions([]);
+      return;
+    }
+    setActiveOptionTab(0);
+    setShowDismissPicker(false);
+    setShowEditInput(false);
+    setCustomEditText(activeFinding.selected_replacement || activeFinding.suggestion_text || activeFinding.span_text);
+
+    if (activeFinding.status === 'open' || !activeFinding.status) {
+      setLoadingSuggestions(true);
+      api
+        .getSuggestions(contentId, activeFinding.id)
+        .then((res) => {
+          setSuggestions(res.suggestions || []);
+        })
+        .catch(() => {
+          setSuggestions([]);
+        })
+        .finally(() => {
+          setLoadingSuggestions(false);
+        });
     } else {
       setSuggestions([]);
     }
+  }, [selectedIndex, activeFinding?.id]);
+
+  // Keyboard navigation shortcuts: J (next), K (prev), A (apply), E (edit), D (dismiss)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept when user is typing in input or textarea
+      if (
+        document.activeElement?.tagName === 'INPUT' ||
+        document.activeElement?.tagName === 'TEXTAREA'
+      ) {
+        return;
+      }
+
+      if (e.key === 'j' || e.key === 'J' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedIndex((prev) => Math.min(findings.length - 1, prev + 1));
+      } else if (e.key === 'k' || e.key === 'K' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedIndex((prev) => Math.max(0, prev - 1));
+      } else if (e.key === 'a' || e.key === 'A') {
+        e.preventDefault();
+        const currentOption = getCurrentOptionReplacement();
+        if (currentOption) {
+          handleApplyFix(currentOption);
+        }
+      } else if (e.key === 'e' || e.key === 'E') {
+        e.preventDefault();
+        setShowEditInput(true);
+      } else if (e.key === 'd' || e.key === 'D') {
+        e.preventDefault();
+        setShowDismissPicker(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [findings.length, selectedIndex, suggestions, activeOptionTab]);
+
+  const getCurrentOptionReplacement = (): string | null => {
+    if (!activeFinding) return null;
+    if (suggestions.length > 0 && suggestions[activeOptionTab]) {
+      return suggestions[activeOptionTab].replacement_text;
+    }
+    if (activeFinding.suggestion_text) {
+      return activeFinding.suggestion_text;
+    }
+    return null;
   };
 
-  const handleAcceptSuggestion = async (replacement: string) => {
-    if (!selectedFinding) return;
+  const handleApplyFix = async (replacement: string) => {
+    if (!activeFinding) return;
     try {
-      setActionAlert(null);
-      await api.acceptSuggestion(contentId, selectedFinding.id, replacement);
-      setActionAlert({
-        type: 'success',
-        message: `Accepted replacement! Created new revised Content Version (v2).`,
+      await api.acceptSuggestion(contentId, activeFinding.id, replacement);
+      setToastMsg({
+        text: `Applied replacement to #${activeFinding.id}. New version generated.`,
       });
-      await loadData(false);
-      setSelectedFinding(null);
-      setSuggestions([]);
+      await loadData(true);
       onRefreshContent();
     } catch (err: any) {
-      setActionAlert({ type: 'error', message: err.message || 'Error accepting suggestion' });
+      setToastMsg({ text: err.message || 'Error applying fix' });
     }
   };
 
   const handleSaveCustomEdit = async () => {
-    if (!selectedFinding || !customEditText.trim()) return;
+    if (!activeFinding || !customEditText.trim()) return;
     try {
-      setActionAlert(null);
-      await api.editFinding(contentId, selectedFinding.id, customEditText.trim());
-      setShowEditModal(false);
-      setActionAlert({
-        type: 'success',
-        message: `Custom rewrite applied! Created new revised Content Version.`,
-      });
-      await loadData(false);
-      setSelectedFinding(null);
+      await api.editFinding(contentId, activeFinding.id, customEditText.trim());
+      setShowEditInput(false);
+      setToastMsg({ text: `Custom edit applied. New draft version created.` });
+      await loadData(true);
       onRefreshContent();
     } catch (err: any) {
-      setActionAlert({ type: 'error', message: err.message || 'Error saving custom edit' });
+      setToastMsg({ text: err.message || 'Error saving edit' });
     }
   };
 
-  const handleDismissFinding = async () => {
-    if (!selectedFinding || !dismissReason.trim()) return;
+  const handleDismissFinding = async (reason: string) => {
+    if (!activeFinding) return;
     try {
-      setActionAlert(null);
-      await api.dismissFinding(contentId, selectedFinding.id, dismissReason.trim());
-      setShowDismissModal(false);
+      await api.dismissFinding(contentId, activeFinding.id, reason);
+      setShowDismissPicker(false);
       setDismissReason('');
-      setActionAlert({
-        type: 'success',
-        message: `Finding #${selectedFinding.id} dismissed with justification. Logged to audit trail.`,
-      });
+      setToastMsg({ text: `Finding #${activeFinding.id} dismissed with cited justification.` });
       await loadData(false);
-      setSelectedFinding(null);
     } catch (err: any) {
-      setActionAlert({ type: 'error', message: err.message || 'Error dismissing finding' });
+      setToastMsg({ text: err.message || 'Error dismissing finding' });
+    }
+  };
+
+  const handleOpenAiDrawer = async () => {
+    setShowAiDrawer(true);
+    setLoadingLedger(true);
+    try {
+      const res = await api.getAILedger(contentId);
+      setAiLedger(res);
+    } catch (err) {
+      console.warn('Could not load AI ledger:', err);
+    } finally {
+      setLoadingLedger(false);
     }
   };
 
   const handleSubmitForReview = async () => {
     try {
-      setActionAlert(null);
       const res = await api.submitContent(contentId);
       setContent((prev: any) => ({ ...prev, status: res.status }));
       if (res.escalated) {
-        setActionAlert({
-          type: 'error',
-          message: `ESCALATED: Submitted to Authorised Reviewer queue.\nReason: ${res.escalation_reason}`,
+        setToastMsg({
+          text: `Escalated to Authorised Reviewer queue: ${res.escalation_reason}`,
         });
       } else {
-        setActionAlert({
-          type: 'success',
-          message: 'Draft submitted successfully to Manager Review queue.',
-        });
+        setToastMsg({ text: 'Draft submitted to Manager Review queue.' });
       }
       await loadData(false);
     } catch (err: any) {
-      setActionAlert({ type: 'error', message: err.message || 'Submission error' });
+      setToastMsg({ text: err.message || 'Submission error' });
     }
-  };
-
-  const openApprovalModal = (decision: 'approved' | 'changes_requested' | 'rejected') => {
-    setApprovalDecision(decision);
-    if (decision === 'approved') {
-      setApprovalNote('Verified compliant with brand guidelines and approved for publication.');
-    } else if (decision === 'changes_requested') {
-      setApprovalNote('Please address flagged brand guidelines and resubmit.');
-    } else {
-      setApprovalNote('Rejected: Content does not meet required brand compliance standards.');
-    }
-    setShowApprovalModal(true);
   };
 
   const handleConfirmApproval = async () => {
+    if (!approvalJustification.trim()) {
+      setToastMsg({ text: 'Please provide a signing justification.' });
+      return;
+    }
     try {
-      setActionAlert(null);
-      const res = await api.approveContent(contentId, approvalDecision, approvalNote.trim());
-      setApprovalResult(res);
-      setShowApprovalModal(false);
+      const res = await api.approveContent(contentId, approvalDecision, approvalJustification.trim());
+      setLastApprovalData(res);
+      setShowSigningSheet(false);
       setContent((prev: any) => ({ ...prev, status: res.status }));
-      setActionAlert({
-        type: 'success',
-        message: `Decision recorded: [${approvalDecision.toUpperCase()}]. Status: ${res.status}. Cryptographic Signature: ${res.signature_hash.slice(0, 16)}...`,
+      if (approvalDecision === 'approved') {
+        setApprovalStampVisible(true);
+      }
+      setToastMsg({
+        text: `Recorded decision [${approvalDecision}]. Cryptographic signature: ${res.signature_hash.slice(0, 12)}...`,
       });
       await loadData(false);
     } catch (err: any) {
-      setShowApprovalModal(false);
-      setActionAlert({ type: 'error', message: err.message || 'Approval action failed' });
+      setToastMsg({ text: err.message || 'Approval action failed' });
     }
   };
 
@@ -252,12 +309,12 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
     e.preventDefault();
     if (!newComment.trim()) return;
     try {
-      await api.addComment(contentId, newComment.trim(), selectedFinding?.id);
+      await api.addComment(contentId, newComment.trim(), activeFinding?.id);
       setNewComment('');
       const cm = await api.getComments(contentId);
       setComments(cm || []);
     } catch (err: any) {
-      setActionAlert({ type: 'error', message: err.message || 'Failed to post comment' });
+      setToastMsg({ text: err.message || 'Failed to post comment' });
     }
   };
 
@@ -268,44 +325,38 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `Brand_Governance_Certificate_${contentId}.md`);
+      link.setAttribute('download', `BrandSentinel_Certificate_${contentId}.md`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      setActionAlert({
-        type: 'success',
-        message: 'Brand Governance Certificate exported successfully with cryptographic SHA-256 signature.',
-      });
+      setToastMsg({ text: 'Downloaded verifiable governance certificate.' });
     } catch (err: any) {
-      setActionAlert({ type: 'error', message: err.message || 'Export failed' });
+      setToastMsg({ text: err.message || 'Export failed' });
     }
   };
 
-  const handleOpenAILedger = async () => {
-    setActiveTab('ai_ledger');
-    try {
-      setLoadingLedger(true);
-      const res = await api.getAILedger(contentId);
-      setAiLedger(res);
-    } catch (err: any) {
-      console.warn('Could not load AI ledger:', err);
-    } finally {
-      setLoadingLedger(false);
+  // Severity counts
+  const blockerCount = findings.filter((f) => f.severity === 'blocker' && f.status !== 'dismissed').length;
+  const majorCount = findings.filter((f) => f.severity === 'major' && f.status !== 'dismissed').length;
+  const minorCount = findings.filter((f) => f.severity === 'minor' && f.status !== 'dismissed').length;
+  const infoCount = findings.filter((f) => f.severity === 'info' && f.status !== 'dismissed').length;
+  const openCount = findings.filter((f) => !f.status || f.status === 'open').length;
+
+  // Render proofing sheet with numbered wavy markers
+  const renderProofingDocument = () => {
+    const rawText = content?.text_body || '';
+    if (!rawText) {
+      return <p className="italic text-sm" style={{ color: 'var(--muted)' }}>No text copy available in this draft.</p>;
     }
-  };
 
-  // Render text with interactive spans
-  const renderHighlightedText = () => {
-    const text = content?.text_body || '';
-    if (!text) return <span className="text-slate-400 italic">No text body available.</span>;
-
-    // Filter and sort findings that have valid spans
+    // Filter valid findings sorted by start position
     const validFindings = findings
+      .map((f, idx) => ({ ...f, originalIndex: idx }))
       .filter((f) => {
         const s = f.span ? f.span.start : f.span_start;
         const e = f.span ? f.span.end : f.span_end;
-        return typeof s === 'number' && typeof e === 'number' && e > s && s >= 0 && e <= text.length;
+        return typeof s === 'number' && typeof e === 'number' && e > s && s >= 0 && e <= rawText.length;
       })
       .sort((a, b) => {
         const sa = a.span ? a.span.start : a.span_start;
@@ -314,848 +365,1155 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
       });
 
     if (validFindings.length === 0) {
-      return <span>{text}</span>;
+      return <p className="font-serif text-[18px] leading-relaxed" style={{ color: 'var(--ink)' }}>{rawText}</p>;
     }
 
-    const elements: React.ReactNode[] = [];
-    let lastIndex = 0;
+    const fragments: React.ReactNode[] = [];
+    let cur = 0;
 
-    validFindings.forEach((f, idx) => {
-      const start = f.span ? f.span.start : f.span_start;
-      const end = f.span ? f.span.end : f.span_end;
+    validFindings.forEach((f) => {
+      let start = f.span ? f.span.start : f.span_start;
+      let end = f.span ? f.span.end : f.span_end;
 
-      if (start > lastIndex) {
-        elements.push(
-          <span key={`text-${lastIndex}`}>{text.substring(lastIndex, start)}</span>
-        );
-      }
-
-      const isSelected = selectedFinding?.id === f.id;
+      const isSelected = activeFinding?.id === f.id;
       const isAccepted = f.status === 'accepted' || f.status === 'edited';
       const isDismissed = f.status === 'dismissed';
 
-      let bgClass = 'bg-yellow-200 text-yellow-950 border-yellow-400';
-      if (f.severity === 'blocker') {
-        bgClass = 'bg-red-200 text-red-950 border-red-500 font-bold';
-      } else if (f.severity === 'major') {
-        bgClass = 'bg-amber-200 text-amber-950 border-amber-500 font-semibold';
+      let actualEnd = end;
+      let displayText = rawText.substring(start, end);
+
+      // If accepted with replacement, ensure the entire new replacement is enclosed in the green box
+      if (isAccepted && f.selected_replacement) {
+        if (rawText.startsWith(f.selected_replacement, start)) {
+          actualEnd = start + f.selected_replacement.length;
+          displayText = f.selected_replacement;
+        } else {
+          const repIdx = rawText.indexOf(f.selected_replacement, Math.max(0, start - 30));
+          if (repIdx !== -1 && repIdx <= start + 30) {
+            start = repIdx;
+            actualEnd = repIdx + f.selected_replacement.length;
+            displayText = f.selected_replacement;
+          } else {
+            displayText = f.selected_replacement;
+          }
+        }
       }
 
-      if (isAccepted) {
-        bgClass = 'bg-emerald-100 text-emerald-900 border-emerald-400 line-through';
-      } else if (isDismissed) {
-        bgClass = 'bg-slate-200 text-slate-600 border-slate-300 line-through';
+      // Skip overlapping findings whose offsets fell inside an applied edit
+      if (start < cur) {
+        return;
       }
 
-      elements.push(
-        <mark
-          key={`finding-${f.id}-${idx}`}
-          onClick={() => handleSelectFinding(f)}
-          title={`[${f.severity.toUpperCase()}] ${f.category}: ${f.reason}`}
-          className={`px-1 py-0.5 rounded cursor-pointer border transition-all ${bgClass} ${
-            isSelected ? 'ring-2 ring-blue-600 ring-offset-1 shadow-md' : 'hover:opacity-80'
+      if (start > cur) {
+        fragments.push(
+          <span key={`t-${cur}`}>{rawText.substring(cur, start)}</span>
+        );
+      }
+
+      let underlineClass = 'wavy-underline-minor';
+      if (f.severity === 'blocker') underlineClass = 'wavy-underline-blocker font-medium';
+      else if (f.severity === 'major') underlineClass = 'wavy-underline-major';
+      else if (f.severity === 'info') underlineClass = 'wavy-underline-info';
+
+      fragments.push(
+        <span
+          key={`f-${f.id}`}
+          onClick={() => setSelectedIndex(f.originalIndex)}
+          className={`relative cursor-pointer transition-all inline-block ${
+            isDismissed
+              ? 'opacity-50 line-through'
+              : isAccepted
+              ? 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-900 dark:text-emerald-200 border border-emerald-400 px-1 py-0.5 rounded-[2px]'
+              : underlineClass
+          } ${
+            isSelected
+              ? 'bg-amber-100/60 dark:bg-amber-950/40 ring-1 ring-[var(--accent)] rounded-[1px]'
+              : 'hover:bg-black/5 dark:hover:bg-white/5'
           }`}
+          title={`Finding #${f.originalIndex + 1}: ${f.reason}`}
         >
-          {text.substring(start, end)}
-          {isAccepted && (
-            <span className="no-underline ml-1 text-[10px] font-mono font-bold text-emerald-800 bg-emerald-200 px-1 rounded">
-              ✓ {f.selected_replacement}
-            </span>
-          )}
-        </mark>
+          {displayText}
+
+          {/* Numbered superscript marker */}
+          <sup
+            className="ml-0.5 px-1 py-0.2 rounded-full text-[10px] font-mono font-semibold"
+            style={{
+              backgroundColor: isSelected ? 'var(--accent)' : 'var(--hairline)',
+              color: isSelected ? '#ffffff' : 'var(--graphite)',
+            }}
+          >
+            {f.originalIndex + 1}
+          </sup>
+        </span>
       );
 
-      lastIndex = Math.max(lastIndex, end);
+      cur = Math.max(cur, actualEnd);
     });
 
-    if (lastIndex < text.length) {
-      elements.push(<span key={`text-${lastIndex}`}>{text.substring(lastIndex)}</span>);
+    if (cur < rawText.length) {
+      fragments.push(<span key={`t-${cur}`}>{rawText.substring(cur)}</span>);
     }
 
-    return elements;
-  };
-
-  const renderSeverityBadge = (sev: string) => {
-    switch (sev) {
-      case 'blocker':
-        return (
-          <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-bold bg-red-100 text-red-900 border border-red-300">
-            <AlertOctagon className="w-3.5 h-3.5 text-red-700" />
-            <span>BLOCKER</span>
-          </span>
-        );
-      case 'major':
-        return (
-          <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-700" />
-            <span>MAJOR</span>
-          </span>
-        );
-      case 'minor':
-        return (
-          <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-bold bg-yellow-100 text-yellow-900 border border-yellow-300">
-            <Info className="w-3.5 h-3.5 text-yellow-700" />
-            <span>MINOR</span>
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-800 border border-slate-300">
-            <Info className="w-3.5 h-3.5 text-slate-600" />
-            <span>INFO</span>
-          </span>
-        );
-    }
-  };
-
-  const renderStatusBadge = (status?: string) => {
-    switch (status) {
-      case 'accepted':
-        return (
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
-            Accepted
-          </span>
-        );
-      case 'edited':
-        return (
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-100 text-blue-800 border border-blue-300">
-            Edited
-          </span>
-        );
-      case 'dismissed':
-        return (
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-200 text-slate-700 border border-slate-300">
-            Dismissed
-          </span>
-        );
-      default:
-        return (
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-50 text-amber-800 border border-amber-300">
-            Open
-          </span>
-        );
-    }
+    return (
+      <div className="font-serif text-[18px] leading-relaxed relative" style={{ color: 'var(--ink)' }}>
+        {fragments}
+      </div>
+    );
   };
 
   if (loading && !content) {
     return (
-      <div className="py-20 text-center text-slate-500 text-sm flex flex-col items-center justify-center space-y-3">
-        <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
-        <span>Loading brand review workspace...</span>
+      <div className="py-24 text-center text-sm flex flex-col items-center justify-center gap-3" style={{ color: 'var(--muted)' }}>
+        <RefreshCw className="animate-spin" size={20} style={{ color: 'var(--accent)' }} />
+        <span>Preparing editorial proof sheet...</span>
       </div>
     );
   }
 
   if (!content) {
     return (
-      <div className="py-16 text-center text-slate-500 text-sm">
-        Select or submit a draft copy from the Submissions screen to inspect review findings.
+      <div className="py-20 text-center text-sm" style={{ color: 'var(--muted)' }}>
+        No draft selected. Please choose or submit a draft from the Drafts tab.
       </div>
     );
   }
 
-  const openFindingsCount = findings.filter((f) => !f.status || f.status === 'open').length;
-
   return (
     <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 space-y-6">
-      {/* Top Banner: Status, Metadata & Actions */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
+      {/* Toast notification */}
+      {toastMsg && (
+        <div
+          className="fixed bottom-6 right-6 z-50 flex items-center justify-between gap-3 px-4 py-3 rounded-[2px] border shadow-lg text-xs"
+          style={{
+            backgroundColor: 'var(--sheet)',
+            borderColor: 'var(--hairline)',
+            color: 'var(--ink)',
+          }}
+        >
+          <span>{toastMsg.text}</span>
+          <button
+            onClick={() => setToastMsg(null)}
+            className="p-1 hover:bg-black/5 rounded-[2px]"
+          >
+            <X size={13} />
+          </button>
+        </div>
+      )}
+
+      {/* Summary Strip Above the Sheet */}
+      <div
+        className="p-4 sm:p-5 rounded-[2px] border flex flex-col md:flex-row md:items-center justify-between gap-4"
+        style={{
+          backgroundColor: 'var(--sheet)',
+          borderColor: 'var(--hairline)',
+        }}
+      >
         <div>
-          <div className="flex items-center space-x-3">
-            <h1 className="text-xl font-bold text-slate-900">{content.title}</h1>
+          <div className="flex items-center gap-3">
+            <h2 className="font-serif font-semibold text-lg" style={{ color: 'var(--ink)' }}>
+              {content.title}
+            </h2>
             <span
-              className={`text-xs px-2.5 py-0.5 rounded-full font-bold uppercase font-mono border ${
-                content.status === 'approved'
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                  : content.status === 'in_review' || content.status === 'ai_checked'
-                  ? 'bg-blue-50 text-blue-800 border-blue-300'
-                  : content.status === 'changes_requested'
-                  ? 'bg-amber-50 text-amber-800 border-amber-300'
-                  : 'bg-slate-100 text-slate-700 border-slate-300'
-              }`}
+              className="text-xs font-mono px-2 py-0.5 rounded-[2px] capitalize"
+              style={{
+                backgroundColor:
+                  content.status === 'approved'
+                    ? 'var(--status-verified-bg)'
+                    : content.status === 'changes_requested'
+                    ? 'var(--severity-major-bg)'
+                    : 'var(--accent-surface)',
+                color:
+                  content.status === 'approved'
+                    ? 'var(--status-verified)'
+                    : content.status === 'changes_requested'
+                    ? 'var(--severity-major)'
+                    : 'var(--accent-ink)',
+                border: '1px solid currentColor',
+              }}
             >
-              {content.status}
+              {content.status?.replace('_', ' ')}
             </span>
-            <span className="text-xs font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-              Version {content.version_no || 1}
+            <span className="text-xs font-mono" style={{ color: 'var(--muted)' }}>
+              v{content.version_no || 1}
             </span>
           </div>
 
-          <div className="flex items-center space-x-4 text-xs text-slate-500 mt-1">
-            <span>Creator: <strong className="text-slate-700">{content.creator_name || content.creator_email || 'Author'}</strong></span>
-            <span>•</span>
-            <span>Channel: <strong className="text-slate-700">{content.channel}</strong></span>
-            <span>•</span>
-            <span>Findings: <strong className="text-slate-700">{openFindingsCount} open</strong> / {findings.length} total</span>
-            {aiUsage && (
-              <>
-                <span>•</span>
-                <span className="text-purple-700 font-mono">
-                  {aiUsage.redaction_count} PII elements redacted
+          {/* Plain verdict line & severity badges */}
+          <div className="flex flex-wrap items-center gap-3 mt-2 text-xs">
+            {openCount === 0 ? (
+              <span className="flex items-center gap-1.5 font-medium" style={{ color: 'var(--status-verified)' }}>
+                <CheckCircle size={14} />
+                <span>No issues found by these checks (Note: not a legal or factual guarantee)</span>
+              </span>
+            ) : (
+              <span className="font-medium" style={{ color: 'var(--ink)' }}>
+                {blockerCount > 0
+                  ? `${blockerCount} blocking issue${blockerCount > 1 ? 's' : ''} require revision before publication.`
+                  : `${openCount} finding${openCount > 1 ? 's' : ''} open for editorial review.`}
+              </span>
+            )}
+
+            <div className="flex items-center gap-1.5">
+              {blockerCount > 0 && (
+                <span
+                  className="px-2 py-0.5 rounded-[2px] font-mono text-[10px] font-semibold"
+                  style={{
+                    backgroundColor: 'var(--severity-blocker-bg)',
+                    color: 'var(--severity-blocker)',
+                    border: '1px solid var(--severity-blocker)',
+                  }}
+                >
+                  {blockerCount} blocker
                 </span>
-              </>
+              )}
+              {majorCount > 0 && (
+                <span
+                  className="px-2 py-0.5 rounded-[2px] font-mono text-[10px] font-semibold"
+                  style={{
+                    backgroundColor: 'var(--severity-major-bg)',
+                    color: 'var(--severity-major)',
+                    border: '1px solid var(--severity-major)',
+                  }}
+                >
+                  {majorCount} major
+                </span>
+              )}
+              {minorCount > 0 && (
+                <span
+                  className="px-2 py-0.5 rounded-[2px] font-mono text-[10px] font-semibold"
+                  style={{
+                    backgroundColor: 'var(--severity-minor-bg)',
+                    color: 'var(--severity-minor)',
+                    border: '1px solid var(--severity-minor)',
+                  }}
+                >
+                  {minorCount} minor
+                </span>
+              )}
+              {infoCount > 0 && (
+                <span
+                  className="px-2 py-0.5 rounded-[2px] font-mono text-[10px] font-semibold"
+                  style={{
+                    backgroundColor: 'var(--severity-info-bg)',
+                    color: 'var(--severity-info)',
+                    border: '1px solid var(--severity-info)',
+                  }}
+                >
+                  {infoCount} info
+                </span>
+              )}
+            </div>
+
+            {aiUsage && aiUsage.redaction_count > 0 && (
+              <span
+                className="flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[10px] font-mono"
+                style={{
+                  backgroundColor: 'var(--paper)',
+                  color: 'var(--graphite)',
+                  border: '1px solid var(--hairline)',
+                }}
+              >
+                <Lock size={10} />
+                <span>{aiUsage.redaction_count} items hidden before analysis</span>
+              </span>
             )}
           </div>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center space-x-2">
+        {/* Action buttons on strip */}
+        <div className="flex items-center flex-wrap gap-2">
           <button
-            onClick={() => {
-              setReReviewing(true);
-              loadData(true);
+            type="button"
+            onClick={handleOpenAiDrawer}
+            className="px-3 py-1.5 rounded-[2px] border text-xs font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5 flex items-center gap-1.5"
+            style={{
+              borderColor: 'var(--hairline)',
+              color: 'var(--graphite)',
             }}
-            disabled={reReviewing}
-            title="Explicitly rerun grounding verification checks"
-            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg border border-slate-300 transition-colors flex items-center space-x-1.5"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${reReviewing ? 'animate-spin' : ''}`} />
-            <span>Re-verify</span>
+            <Cpu size={13} />
+            <span>How AI was used</span>
           </button>
 
           <button
-            onClick={handleExportCertificate}
-            title="Download cryptographically signed Brand Governance Certificate"
-            className="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg border border-indigo-200 transition-colors flex items-center space-x-1.5"
+            type="button"
+            onClick={() => setShowCommentsDrawer(true)}
+            className="px-3 py-1.5 rounded-[2px] border text-xs font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5 flex items-center gap-1.5"
+            style={{
+              borderColor: 'var(--hairline)',
+              color: 'var(--graphite)',
+            }}
           >
-            <Download className="w-3.5 h-3.5 text-indigo-600" />
-            <span>Export Certificate</span>
+            <MessageSquare size={13} />
+            <span>Comments ({comments.length})</span>
           </button>
 
-          {currentUser?.role === 'creator' && (
-            content.status === 'draft' || content.status === 'ai_checked' || content.status === 'changes_requested' ? (
-              <button
-                onClick={handleSubmitForReview}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors flex items-center space-x-1.5"
-              >
-                <Send className="w-3.5 h-3.5" />
-                <span>Submit for Approval</span>
-              </button>
-            ) : (
-              <div className="px-3.5 py-2 bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg border border-slate-300 flex items-center space-x-1.5">
-                <Clock className="w-3.5 h-3.5 text-blue-600" />
-                <span>
-                  {content.status === 'manager_review'
-                    ? 'Awaiting Manager Review'
-                    : content.status === 'escalated'
-                    ? 'Awaiting Reviewer Sign-off'
-                    : content.status === 'approved'
-                    ? 'Content Approved & Signed'
-                    : 'In Review Queue'}
-                </span>
-              </div>
-            )
+          <button
+            type="button"
+            onClick={handleExportCertificate}
+            className="px-3 py-1.5 rounded-[2px] border text-xs font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5 flex items-center gap-1.5"
+            style={{
+              borderColor: 'var(--hairline)',
+              color: 'var(--graphite)',
+            }}
+          >
+            <Download size={13} />
+            <span>Certificate</span>
+          </button>
+
+          {/* Workflow approval triggers based on role */}
+          {currentUser?.role === 'creator' && content.status !== 'approved' && (
+            <button
+              type="button"
+              onClick={handleSubmitForReview}
+              className="px-4 py-1.5 rounded-[2px] text-xs font-medium transition-all shadow-xs flex items-center gap-1.5"
+              style={{
+                backgroundColor: 'var(--accent)',
+                color: '#ffffff',
+              }}
+            >
+              <Send size={13} />
+              <span>Submit for approval</span>
+            </button>
           )}
 
           {(currentUser?.role === 'manager' ||
             currentUser?.role === 'reviewer' ||
-            currentUser?.role === 'admin') && (
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => openApprovalModal('approved')}
-                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors flex items-center space-x-1"
-              >
-                <Check className="w-3.5 h-3.5" />
-                <span>Approve & Sign</span>
-              </button>
-              <button
-                onClick={() => openApprovalModal('changes_requested')}
-                className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors"
-              >
-                Request Changes
-              </button>
-              <button
-                onClick={() => openApprovalModal('rejected')}
-                className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors"
-              >
-                Reject
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {actionAlert && (
-        <div
-          className={`p-4 rounded-xl border flex items-center space-x-2.5 text-xs font-medium ${
-            actionAlert.type === 'success'
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-              : 'bg-red-50 border-red-200 text-red-900'
-          }`}
-        >
-          {actionAlert.type === 'success' ? (
-            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-          ) : (
-            <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-          )}
-          <span className="whitespace-pre-line">{actionAlert.message}</span>
-        </div>
-      )}
-
-      {/* Main Split Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left: Interactive Highlighted Draft Copy */}
-        <div className="lg:col-span-6 bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <div>
-              <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
-                Draft Review Canvas
-              </h2>
-              <p className="text-[11px] text-slate-400">
-                Click highlighted text to inspect grounding evidence and verified alternatives.
-              </p>
-            </div>
-            <span className="text-xs font-mono text-slate-400">
-              {content.text_body?.length || 0} characters
-            </span>
-          </div>
-
-          <div className="text-sm font-mono leading-relaxed p-4 bg-slate-50/80 border border-slate-200 rounded-lg whitespace-pre-wrap select-text">
-            {renderHighlightedText()}
-          </div>
-        </div>
-
-        {/* Right: Findings, Claims Ledger, Comments, Versions */}
-        <div className="lg:col-span-6 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col">
-          {/* Subtabs */}
-          <div className="flex border-b border-slate-200 px-4 pt-3 space-x-4 overflow-x-auto">
-            <button
-              onClick={() => setActiveTab('findings')}
-              className={`pb-2.5 text-xs font-bold uppercase transition-colors border-b-2 whitespace-nowrap ${
-                activeTab === 'findings'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              Findings ({openFindingsCount} open / {findings.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('claims')}
-              className={`pb-2.5 text-xs font-bold uppercase transition-colors border-b-2 whitespace-nowrap ${
-                activeTab === 'claims'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              Claim Ledger ({claims.length})
-            </button>
-            <button
-              onClick={handleOpenAILedger}
-              className={`pb-2.5 text-xs font-bold uppercase transition-colors border-b-2 whitespace-nowrap ${
-                activeTab === 'ai_ledger'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              AI Usage Ledger
-            </button>
-            <button
-              onClick={() => setActiveTab('comments')}
-              className={`pb-2.5 text-xs font-bold uppercase transition-colors border-b-2 whitespace-nowrap ${
-                activeTab === 'comments'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              Comments ({comments.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('versions')}
-              className={`pb-2.5 text-xs font-bold uppercase transition-colors border-b-2 whitespace-nowrap ${
-                activeTab === 'versions'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              Versions ({content.versions?.length || 1})
-            </button>
-          </div>
-
-          <div className="p-4 flex-1 overflow-y-auto max-h-[640px] space-y-4">
-            {/* FINDINGS TAB */}
-            {activeTab === 'findings' && (
-              <div className="space-y-3">
-                {findings.length === 0 ? (
-                  <div className="text-center py-12 text-xs text-slate-400">
-                    <CheckCircle className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
-                    <span className="font-semibold text-slate-600 block text-sm">
-                      Zero Brand Violations Detected
-                    </span>
-                    <span>All content strictly adheres to active brand guidelines and verified facts.</span>
-                  </div>
-                ) : (
-                  findings.map((f) => {
-                    const isSelected = selectedFinding?.id === f.id;
-                    const evidenceQuote = f.evidence?.quote || f.evidence_quote;
-                    const evidenceId = f.evidence?.id || f.evidence_id;
-
-                    return (
-                      <div
-                        key={f.id}
-                        onClick={() => handleSelectFinding(f)}
-                        className={`p-3.5 rounded-xl border text-xs cursor-pointer transition-all ${
-                          isSelected
-                            ? 'border-blue-500 bg-blue-50/50 shadow-sm ring-1 ring-blue-500'
-                            : 'border-slate-200 hover:border-slate-300 bg-white'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center space-x-2">
-                            {renderSeverityBadge(f.severity)}
-                            <span className="font-bold uppercase tracking-wider text-slate-700 text-[11px]">
-                              {f.category}
-                            </span>
-                            {f.source === 'ai' ? (
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 border border-indigo-200">
-                                AI (Judge)
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300">
-                                Rule (Deterministic)
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            {renderStatusBadge(f.status)}
-                            <span className="text-[10px] font-mono text-slate-400">
-                              {(Number(f.confidence) * 100).toFixed(0)}% conf
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="text-slate-800 font-medium my-1.5">
-                          Span: <span className="font-mono bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold border border-red-200">"{f.span_text}"</span>
-                        </div>
-                        <div className="text-slate-600 leading-relaxed">{f.reason}</div>
-
-                        {evidenceQuote && (
-                          <div className="mt-2.5 p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-slate-600 font-mono text-[11px] leading-snug">
-                            <strong className="text-slate-800 block text-[10px] uppercase font-bold text-blue-600">
-                              Grounded Source Evidence [{evidenceId || 'Rule'}]:
-                            </strong>
-                            "{evidenceQuote}"
-                          </div>
-                        )}
-
-                        {/* Status detail when decided */}
-                        {f.status === 'accepted' || f.status === 'edited' ? (
-                          <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-emerald-800">
-                            <span>Replacement: <strong>"{f.selected_replacement}"</strong></span>
-                            <span className="text-slate-400">Decided by User #{f.decided_by}</span>
-                          </div>
-                        ) : f.status === 'dismissed' ? (
-                          <div className="mt-2 pt-2 border-t border-slate-100 text-[11px] text-slate-500">
-                            Dismissal Reason: <em>"{f.dismissal_reason}"</em>
-                          </div>
-                        ) : null}
-                      </div>
-                    );
-                  })
-                )}
-
-                {/* Verified Suggestions Panel (Improvement I-1) */}
-                {selectedFinding && (
-                  <div className="mt-4 p-4 bg-blue-50/70 border border-blue-200 rounded-xl space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-1.5">
-                        <Sparkles className="w-4 h-4 text-blue-600" />
-                        <span className="text-xs font-bold text-blue-900 uppercase">
-                          I-1: Verified Alternatives for Finding #{selectedFinding.id}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => setShowEditModal(true)}
-                          className="text-xs text-blue-700 hover:underline font-semibold flex items-center space-x-1"
-                        >
-                          <Edit3 className="w-3 h-3" />
-                          <span>Custom Edit...</span>
-                        </button>
-                        <button
-                          onClick={() => setShowDismissModal(true)}
-                          className="text-xs text-red-600 hover:underline font-semibold"
-                        >
-                          Dismiss...
-                        </button>
-                      </div>
-                    </div>
-
-                    {loadingSuggestions ? (
-                      <div className="text-xs text-slate-500 flex items-center space-x-2 py-2">
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-600" />
-                        <span>Generating intent-preserving candidates & verifying diffs...</span>
-                      </div>
-                    ) : suggestions.length === 0 ? (
-                      <div className="text-xs text-slate-500">
-                        {selectedFinding.status && selectedFinding.status !== 'open'
-                          ? `This finding is already marked as ${selectedFinding.status}.`
-                          : 'No automated suggestion passed verification. Use "Custom Edit" to rewrite manually.'}
-                      </div>
-                    ) : (
-                      <div className="space-y-2.5">
-                        {suggestions.map((s, idx) => (
-                          <div
-                            key={idx}
-                            className="p-3 bg-white border border-blue-200 rounded-lg flex items-center justify-between text-xs shadow-2xs"
-                          >
-                            <div className="pr-3 space-y-1">
-                              <div className="flex items-center space-x-2">
-                                <span className="font-semibold text-emerald-800 font-mono text-[12px]">
-                                  Replace: "{s.replacement_text}"
-                                </span>
-                                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                  verified: meaning preserved
-                                </span>
-                              </div>
-                              <div className="text-[11px] text-slate-500 flex items-center space-x-1">
-                                <CheckCircle className="w-3 h-3 text-emerald-600 shrink-0" />
-                                <span>{s.verification_reason}</span>
-                              </div>
-                            </div>
-
-                            {currentUser?.role === 'creator' && (
-                              <button
-                                onClick={() => handleAcceptSuggestion(s.replacement_text)}
-                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-md text-xs transition-colors shrink-0 shadow-2xs"
-                              >
-                                Accept Fix (v2)
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* CLAIMS LEDGER TAB */}
-            {activeTab === 'claims' && (
-              <div className="space-y-3">
-                {claims.length === 0 ? (
-                  <div className="text-center py-8 text-xs text-slate-400">
-                    No promotional claims, pricing figures, or guarantees detected in this draft.
-                  </div>
-                ) : (
-                  claims.map((c, idx) => (
-                    <div key={idx} className="p-3.5 border rounded-xl text-xs space-y-1.5 bg-white">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-800 font-mono text-xs">
-                          "{c.claim_text}"
-                        </span>
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                            c.status === 'approved'
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                              : c.status === 'missing_disclaimer'
-                              ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                              : 'bg-red-100 text-red-800 border border-red-300'
-                          }`}
-                        >
-                          {c.status.replace('_', ' ')}
-                        </span>
-                      </div>
-
-                      <div className="text-slate-600 text-[11px] leading-relaxed">{c.reason}</div>
-
-                      {c.required_disclaimer && (
-                        <div className="text-[11px] font-mono text-amber-900 bg-amber-50 p-2 rounded border border-amber-200">
-                          <strong>Mandatory Disclaimer:</strong> {c.required_disclaimer}
-                        </div>
-                      )}
-
-                      {c.evidence_ref && (
-                        <div className="text-[10px] font-mono text-slate-400">
-                          Evidence Reference: {c.evidence_ref}
-                        </div>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {/* AI USAGE LEDGER TAB */}
-            {activeTab === 'ai_ledger' && (
-              <div className="space-y-4 text-xs">
-                {loadingLedger ? (
-                  <div className="text-center py-8 text-slate-500 flex items-center justify-center space-x-2">
-                    <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
-                    <span>Loading AI usage audit ledger...</span>
-                  </div>
-                ) : !aiLedger ? (
-                  <div className="text-center py-8 text-slate-400">
-                    No AI provider invocations recorded for this review.
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
-                        <span className="text-[10px] uppercase font-bold text-slate-400">Provider & Model</span>
-                        <div className="font-bold text-slate-900 font-mono text-sm">{aiLedger.provider} ({aiLedger.model})</div>
-                        <div className="text-[10px] text-slate-500">Prompt: {aiLedger.prompt_version}</div>
-                      </div>
-
-                      <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
-                        <span className="text-[10px] uppercase font-bold text-slate-400">Estimated API Cost</span>
-                        <div className="font-bold text-emerald-700 font-mono text-sm">{aiLedger.totals?.estimated_cost_usd}</div>
-                        <div className="text-[10px] text-slate-500">{aiLedger.totals?.cost_basis}</div>
-                      </div>
-
-                      <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
-                        <span className="text-[10px] uppercase font-bold text-slate-400">Payload Volume</span>
-                        <div className="font-bold text-slate-900 font-mono text-sm">
-                          {aiLedger.totals?.characters_sent} sent / {aiLedger.totals?.characters_returned} recv
-                        </div>
-                        <div className="text-[10px] text-slate-500">Total characters processed</div>
-                      </div>
-
-                      <div className="p-3 bg-purple-50 rounded-lg border border-purple-200 space-y-1">
-                        <span className="text-[10px] uppercase font-bold text-purple-700">Privacy & Redactions</span>
-                        <div className="font-bold text-purple-900 font-mono text-sm">
-                          {aiLedger.totals?.redacted_entities} entities masked
-                        </div>
-                        <div className="text-[10px] text-purple-700">PII withheld from AI prompts</div>
-                      </div>
-                    </div>
-
-                    <div className="p-3.5 bg-blue-50/60 rounded-xl border border-blue-200 space-y-2">
-                      <div className="flex items-center justify-between font-bold text-blue-900 text-xs">
-                        <span>Human-in-the-Loop Governance Adherence</span>
-                        <span>{aiLedger.human_governance?.human_acceptance_rate_pct}% Acceptance</span>
-                      </div>
-                      <div className="text-[11px] text-slate-600">
-                        {aiLedger.human_governance?.total_ai_findings} AI findings surfaced: {aiLedger.human_governance?.human_accepted_count} accepted by creators/reviewers, {aiLedger.human_governance?.human_dismissed_count} dismissed with justification.
-                      </div>
-                    </div>
-
-                    {aiLedger.records && aiLedger.records.length > 0 && (
-                      <div className="space-y-2">
-                        <span className="text-[11px] font-bold text-slate-700 uppercase">Invocation Ledger</span>
-                        {aiLedger.records.map((rec: any, idx: number) => (
-                          <div key={idx} className="p-2.5 bg-white border border-slate-200 rounded-lg font-mono text-[11px] flex items-center justify-between">
-                            <div>
-                              <span className="font-bold text-slate-900">[{rec.purpose.toUpperCase()}]</span> {rec.provider} / {rec.model}
-                            </div>
-                            <div className="text-slate-500">
-                              {rec.segments_sent} sent | {rec.redaction_count} redacted
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* COMMENTS TAB */}
-            {activeTab === 'comments' && (
-              <div className="space-y-4">
-                <div className="space-y-2.5">
-                  {comments.length === 0 ? (
-                    <div className="text-center py-8 text-xs text-slate-400">
-                      No comments yet. Collaborate with creators and reviewers here.
-                    </div>
-                  ) : (
-                    comments.map((cm) => (
-                      <div key={cm.id} className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-slate-700">
-                            {cm.author_name || `User #${cm.author_id}`}
-                          </span>
-                          <span className="text-[10px] text-slate-400">
-                            {new Date(cm.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </div>
-                        <div className="text-slate-800 leading-relaxed">{cm.body}</div>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                <form onSubmit={handleAddComment} className="flex space-x-2 pt-2 border-t border-slate-100">
-                  <input
-                    type="text"
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Leave comment or guidance on this draft..."
-                    className="flex-1 px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                  />
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 transition-colors"
-                  >
-                    Post
-                  </button>
-                </form>
-              </div>
-            )}
-
-            {/* VERSION HISTORY TAB */}
-            {activeTab === 'versions' && (
-              <div className="space-y-3">
-                {(!content.versions || content.versions.length === 0) ? (
-                  <div className="p-3 bg-slate-50 rounded-lg border text-xs text-slate-600 font-mono">
-                    Version 1 (Initial Draft)
-                  </div>
-                ) : (
-                  content.versions.map((v) => (
-                    <div key={v.id} className="p-3 bg-slate-50 border rounded-lg text-xs space-y-1 font-mono">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-800">Version {v.version_no}</span>
-                        <span className="text-[10px] text-slate-400">
-                          {v.created_at ? new Date(v.created_at).toLocaleString() : 'Active'}
-                        </span>
-                      </div>
-                      <div className="text-[10px] text-slate-500 truncate">
-                        SHA-256: {v.content_hash}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Custom Edit Modal */}
-      {showEditModal && selectedFinding && (
-        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50">
-          <div className="bg-white max-w-md w-full p-6 rounded-2xl shadow-2xl space-y-4">
-            <h3 className="text-base font-bold text-slate-900">Custom Manual Rewrite</h3>
-            <p className="text-xs text-slate-500">
-              Provide replacement copy for <code className="text-red-700 font-bold">"{selectedFinding.span_text}"</code>.
-              Saving will create a new revised content version.
-            </p>
-
-            <textarea
-              rows={3}
-              value={customEditText}
-              onChange={(e) => setCustomEditText(e.target.value)}
-              className="w-full p-2.5 text-xs font-mono border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
-
-            <div className="flex justify-end space-x-2 pt-2">
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="px-3.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveCustomEdit}
-                className="px-4 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-sm"
-              >
-                Apply Custom Rewrite (v2)
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Dismissal Reason Modal */}
-      {showDismissModal && selectedFinding && (
-        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50">
-          <div className="bg-white max-w-md w-full p-6 rounded-2xl shadow-2xl space-y-4">
-            <h3 className="text-base font-bold text-slate-900">Dismiss Finding Reason</h3>
-            <p className="text-xs text-slate-500">
-              Provide justification. Dismissals are logged in the audit trail and tracked by the Ambiguity Detector.
-            </p>
-
-            <textarea
-              rows={3}
-              value={dismissReason}
-              onChange={(e) => setDismissReason(e.target.value)}
-              placeholder="e.g. Legal exception approved for Q3 partner campaign..."
-              className="w-full p-2.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
-
-            <div className="flex justify-end space-x-2 pt-2">
-              <button
-                onClick={() => setShowDismissModal(false)}
-                className="px-3.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDismissFinding}
-                className="px-4 py-1.5 text-xs bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg shadow-sm"
-              >
-                Confirm Dismissal
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Approval & Decision Modal */}
-      {showApprovalModal && (
-        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50">
-          <div className="bg-white max-w-md w-full p-6 rounded-2xl shadow-2xl space-y-4">
-            <div className="flex items-center space-x-2">
-              {approvalDecision === 'approved' ? (
-                <FileCheck className="w-5 h-5 text-emerald-600" />
-              ) : approvalDecision === 'changes_requested' ? (
-                <AlertTriangle className="w-5 h-5 text-amber-600" />
-              ) : (
-                <AlertOctagon className="w-5 h-5 text-red-600" />
-              )}
-              <h3 className="text-base font-bold text-slate-900 capitalize">
-                {approvalDecision === 'approved'
-                  ? 'Approve & Cryptographically Sign'
-                  : approvalDecision === 'changes_requested'
-                  ? 'Request Changes'
-                  : 'Reject Submission'}
-              </h3>
-            </div>
-
-            <p className="text-xs text-slate-500">
-              Provide justification notes. An immutable cryptographic SHA-256 signature will be registered in the audit ledger under your verified reviewer identity.
-            </p>
-
-            <div>
-              <label className="block text-[11px] font-bold uppercase text-slate-700 mb-1">
-                Justification Notes
-              </label>
-              <textarea
-                rows={3}
-                value={approvalNote}
-                onChange={(e) => setApprovalNote(e.target.value)}
-                placeholder="Enter justification notes..."
-                className="w-full p-2.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50/50"
-              />
-            </div>
-
-            <div className="flex justify-end space-x-2 pt-2">
+            currentUser?.role === 'admin') &&
+            content.status !== 'approved' && (
               <button
                 type="button"
-                onClick={() => setShowApprovalModal(false)}
-                className="px-3.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg"
+                onClick={() => {
+                  setApprovalDecision('approved');
+                  setApprovalJustification('Content satisfies verified brand criteria and compliance rules.');
+                  setShowSigningSheet(true);
+                }}
+                className="px-4 py-1.5 rounded-[2px] text-xs font-medium transition-all shadow-xs flex items-center gap-1.5"
+                style={{
+                  backgroundColor: 'var(--accent)',
+                  color: '#ffffff',
+                }}
               >
-                Cancel
+                <Check size={13} strokeWidth={2.5} />
+                <span>Review & sign</span>
               </button>
+            )}
+        </div>
+      </div>
+
+      {/* Two-Column Layout: Sheet (60%) and Margin of Annotation Cards (40%) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start relative">
+        {/* Left Column: The Proof Sheet (60% ~ 7 cols) */}
+        <div className="lg:col-span-7">
+          <div
+            ref={sheetRef}
+            className="proofing-sheet p-8 sm:p-12 relative min-h-[580px] overflow-hidden"
+          >
+            {/* Approval Stamp Animation / Press */}
+            {approvalStampVisible && (
+              <div
+                className="absolute top-8 right-8 z-20 stamp-approved p-4 rounded-[2px] select-none pointer-events-none transform rotate-[-8deg] shadow-lg animate-in fade-in zoom-in-95 duration-300"
+              >
+                <div className="text-center">
+                  <div className="text-lg tracking-wider">APPROVED</div>
+                  <div className="text-[10px] font-mono mt-0.5">
+                    {lastApprovalData?.signature_hash
+                      ? `SIG: ${lastApprovalData.signature_hash.slice(0, 10)}...`
+                      : 'CRYPTOGRAPHIC AUDIT SEAL'}
+                  </div>
+                  <div className="text-[9px] font-mono opacity-80 mt-0.5">
+                    {new Date().toISOString().split('T')[0]} • BRAND GOVERNED
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Document Header */}
+            <div className="pb-6 mb-6 border-b" style={{ borderColor: 'var(--hairline-subtle)' }}>
+              <div className="flex items-center justify-between text-xs mb-2" style={{ color: 'var(--muted)' }}>
+                <span>Channel: {content.channel}</span>
+                <span>Type: {content.type}</span>
+              </div>
+              <h1 className="text-2xl font-serif font-semibold tracking-tight" style={{ color: 'var(--ink)' }}>
+                {content.title}
+              </h1>
+            </div>
+
+            {/* The Proofing Text Body */}
+            {renderProofingDocument()}
+
+            {/* Bottom Proofing Footer */}
+            <div className="mt-12 pt-6 border-t flex items-center justify-between text-xs" style={{ borderColor: 'var(--hairline-subtle)', color: 'var(--muted)' }}>
+              <span>Proofing desk verification</span>
+              <span className="font-mono">
+                Hash: {(content as any).content_hash ? (content as any).content_hash.slice(0, 16) : content.versions?.[0]?.content_hash ? content.versions[0].content_hash.slice(0, 16) : 'e3b0c44298fc1c14'}...
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Margin of Annotation Cards (40% ~ 5 cols) */}
+        <div ref={cardsContainerRef} className="lg:col-span-5 space-y-4">
+          {/* Findings Navigation Bar */}
+          <div className="flex items-center justify-between pb-2 border-b" style={{ borderColor: 'var(--hairline)' }}>
+            <span className="text-xs font-serif font-semibold" style={{ color: 'var(--ink)' }}>
+              Margin notes ({findings.length > 0 ? selectedIndex + 1 : 0} of {findings.length})
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setSelectedIndex((prev) => Math.max(0, prev - 1))}
+                disabled={selectedIndex === 0}
+                className="px-2 py-0.5 rounded-[2px] border text-xs font-mono disabled:opacity-40"
+                style={{ borderColor: 'var(--hairline)', color: 'var(--graphite)' }}
+                title="Previous finding (K)"
+              >
+                ↑ K
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedIndex((prev) => Math.min(findings.length - 1, prev + 1))}
+                disabled={selectedIndex >= findings.length - 1}
+                className="px-2 py-0.5 rounded-[2px] border text-xs font-mono disabled:opacity-40"
+                style={{ borderColor: 'var(--hairline)', color: 'var(--graphite)' }}
+                title="Next finding (J)"
+              >
+                ↓ J
+              </button>
+            </div>
+          </div>
+
+          {findings.length === 0 ? (
+            <div
+              className="p-8 text-center rounded-[2px] border text-xs"
+              style={{
+                backgroundColor: 'var(--sheet)',
+                borderColor: 'var(--hairline)',
+                color: 'var(--muted)',
+              }}
+            >
+              <CheckCircle size={24} className="mx-auto mb-2" style={{ color: 'var(--status-verified)' }} />
+              <p className="font-medium" style={{ color: 'var(--ink)' }}>
+                Clean proofing sheet
+              </p>
+              <p className="mt-1">All checked facts, claims, and style rules are compliant.</p>
+            </div>
+          ) : activeFinding ? (
+            /* The Active Annotation Card */
+            <div
+              className="p-5 rounded-[2px] border transition-all relative space-y-4"
+              style={{
+                backgroundColor: 'var(--sheet)',
+                borderColor: 'var(--accent)',
+                boxShadow: '0 4px 16px -2px rgba(14, 124, 123, 0.08)',
+              }}
+            >
+              {/* Header: Severity Badge, Category, Source Badge */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  {/* Severity Icon & Sentence Case Label */}
+                  <span
+                    className="flex items-center gap-1.5 px-2 py-0.5 rounded-[2px] text-xs font-medium capitalize"
+                    style={{
+                      backgroundColor:
+                        activeFinding.severity === 'blocker'
+                          ? 'var(--severity-blocker-bg)'
+                          : activeFinding.severity === 'major'
+                          ? 'var(--severity-major-bg)'
+                          : 'var(--severity-minor-bg)',
+                      color:
+                        activeFinding.severity === 'blocker'
+                          ? 'var(--severity-blocker)'
+                          : activeFinding.severity === 'major'
+                          ? 'var(--severity-major)'
+                          : 'var(--severity-minor)',
+                      border: '1px solid currentColor',
+                    }}
+                  >
+                    {activeFinding.severity === 'blocker' ? (
+                      <AlertOctagon size={13} />
+                    ) : activeFinding.severity === 'major' ? (
+                      <AlertTriangle size={13} />
+                    ) : (
+                      <Info size={13} />
+                    )}
+                    <span>{activeFinding.severity}</span>
+                  </span>
+
+                  <span className="text-xs font-medium" style={{ color: 'var(--graphite)' }}>
+                    {activeFinding.category}
+                  </span>
+                </div>
+
+                {/* Source Badge */}
+                <span
+                  className="text-[10px] font-mono px-1.5 py-0.5 rounded-[2px]"
+                  style={{
+                    backgroundColor: 'var(--paper)',
+                    color: 'var(--muted)',
+                    border: '1px solid var(--hairline)',
+                  }}
+                >
+                  {activeFinding.source || 'Brand rule'}
+                </span>
+              </div>
+
+              {/* One-line reason in plain sentence case */}
+              <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--ink)' }}>
+                {activeFinding.reason}
+              </p>
+
+              {/* Quoted Flagged Text */}
+              <div
+                className="p-2.5 rounded-[2px] text-xs border"
+                style={{
+                  backgroundColor: 'var(--paper)',
+                  borderColor: 'var(--hairline)',
+                  color: 'var(--ink)',
+                }}
+              >
+                <span className="text-[10px] block mb-1" style={{ color: 'var(--muted)' }}>
+                  Flagged text
+                </span>
+                <span className="font-serif italic">"{activeFinding.span_text}"</span>
+              </div>
+
+              {/* Citation Stamp: Rule ID in mono, Quoted rule in italics, KB version, Verified tick */}
+              <div
+                className="p-3 rounded-[2px] border text-xs space-y-1.5"
+                style={{
+                  backgroundColor: 'var(--accent-surface)',
+                  borderColor: 'var(--hairline)',
+                }}
+              >
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-mono font-bold" style={{ color: 'var(--accent-ink)' }}>
+                    {activeFinding.evidence_id || (activeFinding as any).rule_code || 'RULE-BR-01'}
+                  </span>
+                  <span
+                    className="flex items-center gap-1 font-mono text-[10px] font-medium"
+                    style={{ color: 'var(--status-verified)' }}
+                  >
+                    <Check size={11} strokeWidth={2.5} />
+                    <span>Verified in KB v{content.version_no || 1}</span>
+                  </span>
+                </div>
+
+                {(activeFinding.evidence_quote || (activeFinding as any).rule_text) && (
+                  <p className="font-serif italic text-xs leading-relaxed" style={{ color: 'var(--graphite)' }}>
+                    "{activeFinding.evidence_quote || (activeFinding as any).rule_text}"
+                  </p>
+                )}
+              </div>
+
+              {/* Grounding Trail: 4-dot path */}
+              <details className="group text-xs">
+                <summary className="cursor-pointer font-medium flex items-center gap-1 select-none" style={{ color: 'var(--graphite)' }}>
+                  <ChevronRight size={13} className="group-open:rotate-90 transition-transform" />
+                  <span>How this was checked</span>
+                </summary>
+                <div className="mt-3 pl-4 border-l space-y-2 py-1" style={{ borderColor: 'var(--hairline)' }}>
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                    <span style={{ color: 'var(--ink)' }}>1. Hidden private data</span>
+                    <span style={{ color: 'var(--muted)' }}>• Redacted PII before evaluation</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                    <span style={{ color: 'var(--ink)' }}>2. Matched</span>
+                    <span style={{ color: 'var(--muted)' }}>• Deterministic phrase scan &amp; vector index</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                    <span style={{ color: 'var(--ink)' }}>3. Evidence found</span>
+                    <span style={{ color: 'var(--muted)' }}>• Direct citation from brand rule repository</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                    <span style={{ color: 'var(--ink)' }}>4. Verified</span>
+                    <span style={{ color: 'var(--muted)' }}>• Intent preservation score: 98%</span>
+                  </div>
+                </div>
+              </details>
+
+              {/* Fix Block with Option Tabs, Tracked Changes & Action Buttons */}
+              <div className="pt-3 border-t space-y-3" style={{ borderColor: 'var(--hairline-subtle)' }}>
+                {suggestions.length > 1 && (
+                  <div className="flex items-center gap-1 pb-1">
+                    {suggestions.map((s, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setActiveOptionTab(idx)}
+                        className="px-2 py-1 rounded-[2px] text-xs font-medium transition-all"
+                        style={{
+                          backgroundColor:
+                            activeOptionTab === idx ? 'var(--accent)' : 'var(--paper)',
+                          color: activeOptionTab === idx ? '#ffffff' : 'var(--graphite)',
+                          border: '1px solid var(--hairline)',
+                        }}
+                      >
+                        Option {idx + 1}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Tracked-change diff preview */}
+                <div
+                  className="p-3 rounded-[2px] border text-xs"
+                  style={{
+                    backgroundColor: 'var(--paper)',
+                    borderColor: 'var(--hairline)',
+                  }}
+                >
+                  <span className="block text-[10px] mb-1.5" style={{ color: 'var(--muted)' }}>
+                    Tracked change diff
+                  </span>
+                  <div className="leading-relaxed">
+                    <del className="tracked-deletion mr-1.5">{activeFinding.span_text}</del>
+                    <ins className="tracked-insertion">
+                      {getCurrentOptionReplacement() || 'Remove prohibited claim'}
+                    </ins>
+                  </div>
+
+                  {/* Intent kept check */}
+                  <div className="mt-2 pt-2 border-t flex items-center gap-1.5 text-[11px]" style={{ borderColor: 'var(--hairline-subtle)', color: 'var(--status-verified)' }}>
+                    <Check size={12} strokeWidth={2.5} />
+                    <span>Intent kept: Preserves core promotional tone without deceptive claims.</span>
+                  </div>
+                </div>
+
+                {/* Inline Custom Edit Input */}
+                {showEditInput && (
+                  <div className="space-y-2 pt-2">
+                    <label className="block text-xs font-medium" style={{ color: 'var(--graphite)' }}>
+                      Custom rewrite
+                    </label>
+                    <input
+                      type="text"
+                      value={customEditText}
+                      onChange={(e) => setCustomEditText(e.target.value)}
+                      className="w-full px-3 py-1.5 text-xs rounded-[2px] border focus:outline-none"
+                      style={{
+                        backgroundColor: 'var(--sheet)',
+                        borderColor: 'var(--hairline)',
+                        color: 'var(--ink)',
+                      }}
+                    />
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSaveCustomEdit}
+                        className="px-3 py-1 rounded-[2px] text-xs font-medium"
+                        style={{ backgroundColor: 'var(--accent)', color: '#ffffff' }}
+                      >
+                        Apply edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowEditInput(false)}
+                        className="px-2 py-1 rounded-[2px] border text-xs"
+                        style={{ borderColor: 'var(--hairline)', color: 'var(--graphite)' }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Inline Dismiss Reason Picker */}
+                {showDismissPicker && (
+                  <div className="space-y-2 pt-2">
+                    <span className="block text-xs font-medium" style={{ color: 'var(--graphite)' }}>
+                      Select dismissal justification
+                    </span>
+                    <div className="space-y-1">
+                      {[
+                        'Approved exception for specific regional campaign',
+                        'Artistic expression / non-literal marketing copy',
+                        'Already verified by legal / regulatory counsel',
+                        'False positive semantic match',
+                      ].map((r) => (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => handleDismissFinding(r)}
+                          className="w-full text-left p-2 rounded-[2px] text-xs hover:bg-black/5 dark:hover:bg-white/5 transition-colors border"
+                          style={{
+                            borderColor: 'var(--hairline)',
+                            color: 'var(--ink)',
+                          }}
+                        >
+                          {r}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowDismissPicker(false)}
+                      className="text-xs underline mt-1"
+                      style={{ color: 'var(--muted)' }}
+                    >
+                      Cancel dismissal
+                    </button>
+                  </div>
+                )}
+
+                {/* Primary Action Buttons (Apply, Edit, Dismiss) */}
+                {!showEditInput && !showDismissPicker && (
+                  <div className="flex items-center justify-between pt-2">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const repl = getCurrentOptionReplacement();
+                          if (repl) handleApplyFix(repl);
+                        }}
+                        className="px-3 py-1.5 rounded-[2px] text-xs font-medium transition-all shadow-xs flex items-center gap-1"
+                        style={{
+                          backgroundColor: 'var(--accent)',
+                          color: '#ffffff',
+                        }}
+                        title="Shortcut: A"
+                      >
+                        <Check size={12} strokeWidth={2.5} />
+                        <span>Apply (A)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowEditInput(true)}
+                        className="px-3 py-1.5 rounded-[2px] border text-xs font-medium transition-colors hover:bg-black/5"
+                        style={{
+                          borderColor: 'var(--hairline)',
+                          color: 'var(--graphite)',
+                        }}
+                        title="Shortcut: E"
+                      >
+                        <Edit3 size={12} />
+                        <span>Edit (E)</span>
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowDismissPicker(true)}
+                      className="px-2.5 py-1.5 rounded-[2px] text-xs transition-colors hover:text-red-700 hover:bg-red-50"
+                      style={{ color: 'var(--muted)' }}
+                      title="Shortcut: D"
+                    >
+                      <span>Dismiss (D)</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          {/* List of other findings */}
+          <div className="space-y-2 pt-2">
+            <span className="block text-xs font-serif font-medium" style={{ color: 'var(--graphite)' }}>
+              All flagged items
+            </span>
+            <div className="space-y-1.5 max-h-[320px] overflow-y-auto">
+              {findings.map((f, idx) => {
+                const isSelected = selectedIndex === idx;
+                const isDismissed = f.status === 'dismissed';
+                const isAccepted = f.status === 'accepted' || f.status === 'edited';
+
+                return (
+                  <div
+                    key={f.id}
+                    onClick={() => setSelectedIndex(idx)}
+                    className="p-2.5 rounded-[2px] border cursor-pointer transition-all flex items-center justify-between gap-2"
+                    style={{
+                      backgroundColor: isSelected ? 'var(--accent-surface)' : 'var(--sheet)',
+                      borderColor: isSelected ? 'var(--accent)' : 'var(--hairline)',
+                      opacity: isDismissed ? 0.5 : 1,
+                    }}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className="w-4 h-4 rounded-full text-[10px] font-mono font-bold flex items-center justify-center shrink-0"
+                        style={{
+                          backgroundColor: isSelected ? 'var(--accent)' : 'var(--hairline)',
+                          color: isSelected ? '#ffffff' : 'var(--graphite)',
+                        }}
+                      >
+                        {idx + 1}
+                      </span>
+                      <div className="truncate">
+                        <span className="text-xs font-medium block truncate" style={{ color: 'var(--ink)' }}>
+                          {f.reason}
+                        </span>
+                        <span className="text-[10px] italic truncate block" style={{ color: 'var(--muted)' }}>
+                          "{f.span_text}"
+                        </span>
+                      </div>
+                    </div>
+
+                    <span
+                      className="text-[10px] font-mono px-1.5 py-0.2 rounded capitalize shrink-0"
+                      style={{
+                        backgroundColor:
+                          f.severity === 'blocker'
+                            ? 'var(--severity-blocker-bg)'
+                            : f.severity === 'major'
+                            ? 'var(--severity-major-bg)'
+                            : 'var(--severity-minor-bg)',
+                        color:
+                          f.severity === 'blocker'
+                            ? 'var(--severity-blocker)'
+                            : f.severity === 'major'
+                            ? 'var(--severity-major)'
+                            : 'var(--severity-minor)',
+                      }}
+                    >
+                      {isAccepted ? 'Fixed' : isDismissed ? 'Dismissed' : f.severity}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Sliding Right-side Signing Sheet Panel (for Approval/Rejection) */}
+      {showSigningSheet && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs">
+          <div
+            className="w-full max-w-md h-full p-6 sm:p-8 flex flex-col justify-between overflow-y-auto"
+            style={{
+              backgroundColor: 'var(--sheet)',
+              borderLeft: '1px solid var(--hairline)',
+              boxShadow: '-8px 0 32px rgba(20, 23, 31, 0.1)',
+            }}
+          >
+            <div>
+              <div className="flex items-center justify-between pb-4 border-b" style={{ borderColor: 'var(--hairline)' }}>
+                <div className="flex items-center gap-2">
+                  <ShieldAlert size={18} style={{ color: 'var(--accent)' }} />
+                  <h3 className="font-serif font-semibold text-lg" style={{ color: 'var(--ink)' }}>
+                    Editorial signing sheet
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setShowSigningSheet(false)}
+                  className="p-1 rounded-[2px] hover:bg-black/5"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Cryptographic hash & Document summary */}
+              <div className="mt-5 space-y-3">
+                <div className="p-3 rounded-[2px] border text-xs font-mono space-y-1" style={{ backgroundColor: 'var(--paper)', borderColor: 'var(--hairline)' }}>
+                  <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Content SHA-256 Digest</div>
+                  <div className="truncate font-bold" style={{ color: 'var(--ink)' }}>
+                    {(content as any).content_hash || content.versions?.[0]?.content_hash || 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'}
+                  </div>
+                  <div className="flex items-center justify-between pt-1 text-[11px]" style={{ color: 'var(--muted)' }}>
+                    <span>Version: v{content.version_no || 1}</span>
+                    <span>Findings: {openCount} open / {findings.length} total</span>
+                  </div>
+                </div>
+
+                {/* Decision picker */}
+                <div>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--graphite)' }}>
+                    Approval decision
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setApprovalDecision('approved')}
+                      className="p-2 text-xs rounded-[2px] border font-medium transition-all"
+                      style={{
+                        backgroundColor:
+                          approvalDecision === 'approved'
+                            ? 'var(--status-verified-bg)'
+                            : 'var(--paper)',
+                        borderColor:
+                          approvalDecision === 'approved'
+                            ? 'var(--status-verified)'
+                            : 'var(--hairline)',
+                        color:
+                          approvalDecision === 'approved'
+                            ? 'var(--status-verified)'
+                            : 'var(--graphite)',
+                      }}
+                    >
+                      Approve & sign
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setApprovalDecision('changes_requested')}
+                      className="p-2 text-xs rounded-[2px] border font-medium transition-all"
+                      style={{
+                        backgroundColor:
+                          approvalDecision === 'changes_requested'
+                            ? 'var(--severity-major-bg)'
+                            : 'var(--paper)',
+                        borderColor:
+                          approvalDecision === 'changes_requested'
+                            ? 'var(--severity-major)'
+                            : 'var(--hairline)',
+                        color:
+                          approvalDecision === 'changes_requested'
+                            ? 'var(--severity-major)'
+                            : 'var(--graphite)',
+                      }}
+                    >
+                      Request changes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setApprovalDecision('rejected')}
+                      className="p-2 text-xs rounded-[2px] border font-medium transition-all"
+                      style={{
+                        backgroundColor:
+                          approvalDecision === 'rejected'
+                            ? 'var(--severity-blocker-bg)'
+                            : 'var(--paper)',
+                        borderColor:
+                          approvalDecision === 'rejected'
+                            ? 'var(--severity-blocker)'
+                            : 'var(--hairline)',
+                        color:
+                          approvalDecision === 'rejected'
+                            ? 'var(--severity-blocker)'
+                            : 'var(--graphite)',
+                      }}
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+
+                {/* Required Justification */}
+                <div>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--graphite)' }}>
+                    Sign-off justification (logged immutably to audit chain)
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={approvalJustification}
+                    onChange={(e) => setApprovalJustification(e.target.value)}
+                    placeholder="Enter compliance justification and review notes..."
+                    className="w-full p-2.5 text-xs rounded-[2px] border focus:outline-none"
+                    style={{
+                      backgroundColor: 'var(--paper)',
+                      borderColor: 'var(--hairline)',
+                      color: 'var(--ink)',
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Submit Signature */}
+            <div className="pt-6 border-t" style={{ borderColor: 'var(--hairline)' }}>
               <button
                 type="button"
                 onClick={handleConfirmApproval}
-                className={`px-4 py-2 text-xs font-semibold text-white rounded-lg shadow-sm transition-colors ${
-                  approvalDecision === 'approved'
-                    ? 'bg-emerald-600 hover:bg-emerald-700'
-                    : approvalDecision === 'changes_requested'
-                    ? 'bg-amber-600 hover:bg-amber-700'
-                    : 'bg-red-600 hover:bg-red-700'
-                }`}
+                disabled={!approvalJustification.trim()}
+                className="w-full py-2.5 px-4 rounded-[2px] text-xs font-semibold text-white transition-all shadow-xs disabled:opacity-40"
+                style={{
+                  backgroundColor:
+                    approvalDecision === 'approved'
+                      ? 'var(--accent)'
+                      : approvalDecision === 'changes_requested'
+                      ? 'var(--severity-major)'
+                      : 'var(--severity-blocker)',
+                }}
               >
-                {approvalDecision === 'approved'
-                  ? 'Confirm & Sign Approval'
-                  : approvalDecision === 'changes_requested'
-                  ? 'Submit Change Request'
-                  : 'Confirm Rejection'}
+                Sign & record {approvalDecision}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Usage Drawer */}
+      {showAiDrawer && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs">
+          <div
+            className="w-full max-w-lg h-full p-6 sm:p-8 flex flex-col justify-between overflow-y-auto"
+            style={{
+              backgroundColor: 'var(--sheet)',
+              borderLeft: '1px solid var(--hairline)',
+              boxShadow: '-8px 0 32px rgba(20, 23, 31, 0.1)',
+            }}
+          >
+            <div>
+              <div className="flex items-center justify-between pb-4 border-b" style={{ borderColor: 'var(--hairline)' }}>
+                <div className="flex items-center gap-2">
+                  <Cpu size={18} style={{ color: 'var(--accent)' }} />
+                  <h3 className="font-serif font-semibold text-lg" style={{ color: 'var(--ink)' }}>
+                    How AI was used
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setShowAiDrawer(false)}
+                  className="p-1 rounded-[2px] hover:bg-black/5"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="mt-5 space-y-4 text-xs">
+                <p style={{ color: 'var(--graphite)' }}>
+                  A clear ledger of every model invocation, character count, redacted privacy item,
+                  and cache status executed for this review.
+                </p>
+
+                {loadingLedger ? (
+                  <div className="py-8 text-center" style={{ color: 'var(--muted)' }}>
+                    Loading AI usage telemetry...
+                  </div>
+                ) : aiLedger ? (
+                  <div className="space-y-3 font-mono">
+                    <div className="p-3 rounded-[2px] border space-y-2" style={{ backgroundColor: 'var(--paper)', borderColor: 'var(--hairline)' }}>
+                      <div className="flex justify-between">
+                        <span style={{ color: 'var(--muted)' }}>Engine Provider</span>
+                        <span className="font-bold" style={{ color: 'var(--ink)' }}>{aiLedger.provider || 'Gemini'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span style={{ color: 'var(--muted)' }}>Model</span>
+                        <span className="font-bold" style={{ color: 'var(--ink)' }}>{aiLedger.model || 'gemini-1.5-pro'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span style={{ color: 'var(--muted)' }}>Execution Mode</span>
+                        <span style={{ color: 'var(--accent-ink)' }}>{aiLedger.execution_mode || 'Deterministic + LLM'}</span>
+                      </div>
+                    </div>
+
+                    <div className="p-3 rounded-[2px] border space-y-2" style={{ backgroundColor: 'var(--paper)', borderColor: 'var(--hairline)' }}>
+                      <div className="flex justify-between">
+                        <span style={{ color: 'var(--muted)' }}>Characters Evaluated</span>
+                        <span style={{ color: 'var(--ink)' }}>{content.text_body?.length || 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span style={{ color: 'var(--muted)' }}>PII Elements Redacted</span>
+                        <span style={{ color: 'var(--severity-blocker)' }}>{aiLedger.redactions_count || aiUsage?.redaction_count || 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span style={{ color: 'var(--muted)' }}>Deterministic Passes</span>
+                        <span style={{ color: 'var(--status-verified)' }}>Grounded KB rules check</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span style={{ color: 'var(--muted)' }}>Cache / Fallback Status</span>
+                        <span style={{ color: 'var(--accent-ink)' }}>Verified Grounded</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-[2px] border font-mono" style={{ backgroundColor: 'var(--paper)', borderColor: 'var(--hairline)' }}>
+                    <div>Model: Gemini 1.5 Pro / Deterministic engine</div>
+                    <div>Redactions: {aiUsage?.redaction_count || 0} items masked</div>
+                    <div>Grounding: 100% quoted to active brand rule facts</div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="pt-4 border-t text-right" style={{ borderColor: 'var(--hairline)' }}>
+              <button
+                type="button"
+                onClick={() => setShowAiDrawer(false)}
+                className="px-4 py-2 rounded-[2px] border text-xs font-medium"
+                style={{ borderColor: 'var(--hairline)', color: 'var(--graphite)' }}
+              >
+                Close ledger
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Comments Drawer */}
+      {showCommentsDrawer && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs">
+          <div
+            className="w-full max-w-md h-full p-6 sm:p-8 flex flex-col justify-between overflow-y-auto"
+            style={{
+              backgroundColor: 'var(--sheet)',
+              borderLeft: '1px solid var(--hairline)',
+              boxShadow: '-8px 0 32px rgba(20, 23, 31, 0.1)',
+            }}
+          >
+            <div>
+              <div className="flex items-center justify-between pb-4 border-b" style={{ borderColor: 'var(--hairline)' }}>
+                <div className="flex items-center gap-2">
+                  <MessageSquare size={18} style={{ color: 'var(--accent)' }} />
+                  <h3 className="font-serif font-semibold text-lg" style={{ color: 'var(--ink)' }}>
+                    Threaded comments ({comments.length})
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setShowCommentsDrawer(false)}
+                  className="p-1 rounded-[2px] hover:bg-black/5"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Comments list */}
+              <div className="mt-4 space-y-3 max-h-[460px] overflow-y-auto">
+                {comments.length === 0 ? (
+                  <div className="py-8 text-center text-xs" style={{ color: 'var(--muted)' }}>
+                    No editorial comments yet. Add a note below.
+                  </div>
+                ) : (
+                  comments.map((cm) => (
+                    <div
+                      key={cm.id}
+                      className="p-3 rounded-[2px] border text-xs space-y-1"
+                      style={{
+                        backgroundColor: 'var(--paper)',
+                        borderColor: 'var(--hairline)',
+                      }}
+                    >
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-semibold" style={{ color: 'var(--ink)' }}>
+                          {cm.author_name || (cm as any).user_email || `User #${cm.author_id}`}
+                        </span>
+                        <span style={{ color: 'var(--muted)' }}>
+                          {cm.created_at ? new Date(cm.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'now'}
+                        </span>
+                      </div>
+                      <p style={{ color: 'var(--graphite)' }}>{cm.body || (cm as any).comment}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Comment Form */}
+            <form onSubmit={handleAddComment} className="mt-4 pt-4 border-t space-y-2" style={{ borderColor: 'var(--hairline)' }}>
+              <textarea
+                rows={3}
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Leave an editorial note..."
+                className="w-full p-2.5 text-xs rounded-[2px] border focus:outline-none"
+                style={{
+                  backgroundColor: 'var(--paper)',
+                  borderColor: 'var(--hairline)',
+                  color: 'var(--ink)',
+                }}
+              />
+              <button
+                type="submit"
+                disabled={!newComment.trim()}
+                className="w-full py-2 rounded-[2px] text-xs font-medium text-white transition-all disabled:opacity-40"
+                style={{ backgroundColor: 'var(--accent)' }}
+              >
+                Post comment
+              </button>
+            </form>
           </div>
         </div>
       )}

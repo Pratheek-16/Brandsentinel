@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from rapidfuzz import fuzz
 
 from ...db import models
+from ...core.datetime_utils import utc_now
 from .checks import INJECTION_PATTERNS
 
 
@@ -67,7 +68,7 @@ def run_kb_checks(
     """Run compliance checks driven entirely by the active KB version's data."""
     findings: List[Dict[str, Any]] = []
     lowered = text.lower()
-    now = datetime.datetime.utcnow()
+    now = utc_now()
 
     # -------------------------------------------------------------
     # 0. Prompt-Injection / Adversarial Defense (Platform Safety)

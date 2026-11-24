@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from ...core.config import settings
 from ...db import session, models
 from ...core.security import get_current_user, require_roles
+from ...core.datetime_utils import utc_now
 from ...schemas import (
     RuleCreate, RuleUpdate, RuleResponse,
     FactCreate, FactUpdate, FactResponse,
@@ -116,7 +117,7 @@ def list_facts(
 ):
     kb = get_or_create_active_kb(db, current_user.workspace_id, current_user.id)
     facts = db.query(models.Fact).filter(models.Fact.kb_version_id == kb.id).order_by(models.Fact.id.asc()).all()
-    now = datetime.datetime.utcnow()
+    now = utc_now()
     results = []
     for f in facts:
         is_stale = bool(f.valid_to and f.valid_to < now)
@@ -157,7 +158,7 @@ def create_fact(
     db.add(fact)
     db.commit()
     db.refresh(fact)
-    now = datetime.datetime.utcnow()
+    now = utc_now()
     return FactResponse(
         id=fact.id,
         kb_version_id=fact.kb_version_id,
@@ -189,7 +190,7 @@ def update_fact(
 
     db.commit()
     db.refresh(fact)
-    now = datetime.datetime.utcnow()
+    now = utc_now()
     return FactResponse(
         id=fact.id,
         kb_version_id=fact.kb_version_id,
@@ -289,7 +290,7 @@ def list_claims(
 ):
     kb = get_or_create_active_kb(db, current_user.workspace_id, current_user.id)
     claims = db.query(models.Claim).filter(models.Claim.kb_version_id == kb.id).order_by(models.Claim.id.asc()).all()
-    now = datetime.datetime.utcnow()
+    now = utc_now()
     results = []
     for c in claims:
         is_expired = bool(c.valid_to and c.valid_to < now)
@@ -321,7 +322,7 @@ def create_claim(
     db.add(claim)
     db.commit()
     db.refresh(claim)
-    now = datetime.datetime.utcnow()
+    now = utc_now()
     return ClaimResponse(
         id=claim.id,
         kb_version_id=claim.kb_version_id,
@@ -349,7 +350,7 @@ def update_claim(
 
     db.commit()
     db.refresh(claim)
-    now = datetime.datetime.utcnow()
+    now = utc_now()
     return ClaimResponse(
         id=claim.id,
         kb_version_id=claim.kb_version_id,
@@ -548,7 +549,7 @@ def create_new_version(
     db: Session = Depends(session.get_db),
     current_user: models.User = Depends(require_roles(models.RoleEnum.admin)),
 ):
-    label = payload.get("label") or f"Guidelines Snapshot {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+    label = payload.get("label") or f"Guidelines Snapshot {utc_now().strftime('%Y-%m-%d %H:%M')}"
     current_kb = get_or_create_active_kb(db, current_user.workspace_id, current_user.id)
     current_kb.is_active = False
 

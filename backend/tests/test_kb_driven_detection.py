@@ -10,6 +10,7 @@ Demonstrates that:
 import pytest
 import datetime
 import uuid
+from backend.app.core.datetime_utils import utc_now
 from fastapi.testclient import TestClient
 from backend.app.main import app
 from backend.app.db import session, models
@@ -196,7 +197,7 @@ def test_fourth_fictional_workspace_zero_code_changes(client):
             "approved_text": "Contains 28g of clean bio-identical marine protein per serving",
             "evidence_ref": "Nutritional Lab Assay #441",
             "required_disclaimer": "*Tested by Food Science Institute.",
-            "valid_to": (datetime.datetime.utcnow() + datetime.timedelta(days=180)).isoformat()
+            "valid_to": (utc_now() + datetime.timedelta(days=180)).isoformat()
         },
         headers=admin_headers
     )

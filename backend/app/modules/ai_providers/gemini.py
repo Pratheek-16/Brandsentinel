@@ -105,7 +105,7 @@ class GeminiProvider(AIProvider):
         # Attempt call with 1-shot retry on JSON or transient error
         for attempt in range(2):
             try:
-                with httpx.Client(timeout=25.0) as client:
+                with httpx.Client(timeout=6.0) as client:
                     resp = client.post(
                         f"{self.api_url}?key={self.api_key}",
                         json=payload,

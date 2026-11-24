@@ -1,4 +1,5 @@
 import datetime
+from backend.app.core.datetime_utils import utc_now
 import uuid
 import pytest
 from starlette.testclient import TestClient
@@ -67,7 +68,7 @@ def insights_test_setup():
     )
     db.add_all([term1, term2])
 
-    now = datetime.datetime.utcnow()
+    now = utc_now()
     fact1 = models.Fact(
         kb_version_id=kb.id,
         code="FACT-BATTERY-A",

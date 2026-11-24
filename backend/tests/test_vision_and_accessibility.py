@@ -167,3 +167,25 @@ def test_logo_template_matching():
     draw2.line([(0, 0), (30, 30)], fill=(0, 0, 0), width=1)
     found_bad, score_bad = match_logo_template(target, unrelated, threshold=0.90)
     assert found_bad is False
+
+
+def test_logo_usage_stretched_and_too_small():
+    from backend.app.modules.vision.analyzer import check_logo_usage
+
+    # Original logo template 40x40 (1:1 aspect ratio)
+    logo_tmpl = Image.new("RGB", (40, 40), color=(0, 0, 0))
+
+    # 1. Stretched logo: 80x30 (2.67:1 aspect ratio -> distorted)
+    stretched_asset = Image.new("RGB", (80, 30), color=(0, 0, 0))
+    res_stretch = check_logo_usage(stretched_asset, logo_tmpl)
+    assert res_stretch["status"] == "violation"
+    assert res_stretch["issue"] == "stretched"
+    assert "LOGO-STRETCHED" in res_stretch["deduction"]["evidence_id"]
+
+    # 2. Too small logo: 16x16 (< 32px)
+    small_asset = Image.new("RGB", (20, 20), color=(0, 0, 0))
+    res_small = check_logo_usage(small_asset, logo_tmpl)
+    assert res_small["status"] == "violation"
+    assert res_small["issue"] == "too_small"
+    assert "LOGO-TOO-SMALL" in res_small["deduction"]["evidence_id"]
+
