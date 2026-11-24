@@ -5,28 +5,85 @@
 [![React](https://img.shields.io/badge/React-19.3-61DAFB.svg)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.2-3178C6.svg)](https://www.typescriptlang.org)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.3-38B2AC.svg)](https://tailwindcss.com)
-[![Test Suite](https://img.shields.io/badge/Tests-55%20Passed-brightgreen.svg)](backend/tests)
-[![Benchmark F1](https://img.shields.io/badge/BrandBench%20v3%20F1-97.3%25-blue.svg)](benchmark/report.md)
-[![User Research Status](https://img.shields.io/badge/User%20Research-Protocol%20Ready-blueviolet.svg)](docs/research/status.md)
+[![Tests](https://img.shields.io/badge/Tests-55%20Passed-brightgreen.svg)](backend/tests)
+[![Evaluation](https://img.shields.io/badge/BrandBench-97.3%25%20F1-blue.svg)](benchmark/report.md)
 
-**BrandSentinel** is an intelligent, pre-publication brand-governance and compliance platform built for the **Inkloom AI Brand-Governance Hackathon (Round 3: "The Finish")**.
+**BrandSentinel** is an enterprise-grade, pre-publication brand governance and compliance platform designed around the concept of **"The Proofing Desk"**. 
 
-It enables marketing, copy, and legal review teams to audit pre-publication text, documents (DOCX, PDF), and visual assets against approved brand guidelines, factual records, approved terminology, regulatory claim registers, and visual palettes. Every finding is mathematically grounded with direct citations, paired with verified intent-preserving rewrite suggestions, and routed through a tamper-evident, role-based review workflow.
+It enables marketing, copy, creative, and legal review teams to audit pre-publication copy, documents (DOCX, PDF), and visual assets against approved brand guidelines, factual records, terminology registers, regulatory claims, and visual design systems. Every finding is mathematically grounded with exact source citations, paired with verified intent-preserving rewrite suggestions, and routed through a tamper-evident, role-based review workflow.
 
 ---
 
-## Deliverables & Documentation Index
+## Table of Contents
 
-- **Round 3 Final Report:** [`docs/round3-report.md`](docs/round3-report.md) (~8 pages: Problem, Users, Architecture, 3 Improvements, Reliability, Security, Roadmap)
-- **Live Judging Walkthrough Script:** [`docs/demo-script.md`](docs/demo-script.md) (Step-by-step walkthrough for all personas)
-- **BrandBench v3 Evaluation Report:** [`benchmark/report.md`](benchmark/report.md) (160 held-out cases, 42.5% clean true negatives, 0.0% injection bypass, F1 97.3%, Precision 96.8%, Recall 97.8%)
-- **Accessibility & WCAG 2.2 AA Audit:** [`docs/accessibility.md`](docs/accessibility.md) (Contrast, focus, ARIA, and asset inspector specs)
-- **User Research & Testing Status:** [`docs/research/status.md`](docs/research/status.md) (Honest status: structured testing unperformed; protocol and task guides ready in `docs/research/protocol.md`)
-- **Changes Since Round 2:** [`docs/changes-since-round-2.md`](docs/changes-since-round-2.md) (Commit-by-commit changelog)
-- **Responsible Design & Privacy:** [`docs/responsible-design.md`](docs/responsible-design.md) (Redaction, human agency, no dark patterns)
-- **Limitations & 12-Month Roadmap:** [`docs/limitations-roadmap.md`](docs/limitations-roadmap.md) (Honest known boundaries and phased plans)
-- **Submission Checklist:** [`docs/submission-checklist.md`](docs/submission-checklist.md) (Audit against all 100 judging points)
-- **Disclosures & Attribution:** [`DISCLOSURES.md`](DISCLOSURES.md) (AI tools, open-source libraries, and licenses)
+- [Core Capabilities](#core-capabilities)
+- [System Architecture](#system-architecture)
+- [Technology Stack](#technology-stack)
+- [User Personas & Workspaces](#user-personas--workspaces)
+- [Prerequisites](#prerequisites)
+- [Step-by-Step Installation & Quickstart](#step-by-step-installation--quickstart)
+  - [1. Clone Repository](#1-clone-the-repository)
+  - [2. Environment Configuration](#2-configure-environment-variables)
+  - [3. Backend Setup](#3-set-up-the-python-backend)
+  - [4. Database Migration & Demo Data](#4-run-database-migrations--seed-demo-data)
+  - [5. Frontend Setup](#5-set-up-the-react-frontend)
+  - [6. Access the Application](#6-access-the-application)
+- [Alternative Run Modes](#alternative-run-modes)
+  - [Single-Server Production Mode](#single-server-production-mode)
+  - [Docker & Containerized Setup](#docker--containerized-setup)
+- [Testing & Quality Assurance](#testing--quality-assurance)
+  - [Backend Unit & Integration Tests](#backend-unit--integration-tests)
+  - [Frontend Test Suite](#frontend-test-suite)
+  - [Held-Out Evaluation Benchmark](#held-out-evaluation-benchmark)
+- [API Reference](#api-reference)
+- [Project Directory Structure](#project-directory-structure)
+- [License](#license)
+
+---
+
+## Core Capabilities
+
+### 1. The Editorial Proofing Desk
+- **Distraction-Free Authoring:** A centered document canvas styled with warm paper tones, dark ink typography (Fraunces serif display and Instrument Sans UI), and hairline rules.
+- **Interactive Margin Notes:** Violations are flagged with severity-coded wavy underlines in the text, visually linked to annotation cards in the margin with thin curved leader lines.
+- **One-Click Verified Fixes:** Click any suggestion to immediately replace text in the draft, with tracked-change visual indicators and real-time re-evaluation.
+- **Pre-Analysis PII Protection:** Automated redaction of sensitive identifiers (Aadhaar, PAN, UPI IDs, IFSC codes, phone numbers, and API keys) before any content reaches automated analysis engines.
+
+### 2. Multi-Layer Verification & Grounding Engine
+- **Layer 1 (Deterministic KB Matcher):** RapidFuzz exact and lemmatized token matching against active brand rules, prohibited terms, and numerical fact contradictions.
+- **Layer 2 (Semantic RAG Evaluator):** Vector-based semantic search retrieving the most relevant active guidelines, evaluated by a prompt-injection-resistant evaluator.
+- **Grounding Verifier:** Strictly validates all findings: ensures cited rule IDs exist in the active Knowledge Base, verifies exact quoted text, and confirms character span offsets. Dropping ungrounded hallucinations ensures zero false citations.
+
+### 3. Intent-Preserving Suggestion Engine
+- Generates up to three verified alternative rewrites for every flagged violation using preferred terminology, active brand claims, and contextual minimal edits.
+- **Three-Branch Verification:**
+  1. **Violation Resolution:** Verifies that applying the candidate fix completely eliminates the original violation.
+  2. **Non-Regression:** Verifies that no new blocker or major severity violations are introduced.
+  3. **Meaning Preservation:** Verifies that critical quantities, numbers, and core facts outside the flagged span remain unchanged.
+
+### 4. Multi-Format Visual & Accessibility Inspector
+- **Color Palette Adherence:** Calculates CIELAB $\Delta E^*$ (CIE76 Euclidean distance in $L^*a^*b^*$ color space) between asset colors and approved brand swatches.
+- **WCAG 2.2 AA Contrast:** Evaluates relative luminance contrast ratios against statutory accessibility requirements (4.5:1 for normal text, 3:1 for large text).
+- **Document Structure & Alt-Text Audit:** Inspects DOCX and PDF documents for missing image alt-text, heading-level skips (e.g., Heading 1 jumping to Heading 3), uninformative link anchors ("click here"), and tables lacking designated header rows.
+- **Itemized Scoring (0–100):** Transparent score card showing exact point deductions with clear remediation advice.
+
+### 5. Knowledge Base Management & Versioning
+- Complete CRUD management for **Brand Rules**, **Prohibited & Preferred Terms**, **Factual Specifications**, **Regulatory Claims**, and **Visual Color Palettes**.
+- **Immutable KB Versioning:** Every modification creates a versioned snapshot, allowing historical content reviews against the exact guidelines active at the time of creation.
+- **Live Preview Simulator:** Test draft sentences in real-time within the Knowledge Base manager to see matched rules before publishing guideline updates.
+
+### 6. Governance Insights & Ambiguity Detection
+- Continuously analyzes four operational signals across workspace activity:
+  1. **High Creator Dismissals:** Identifies guidelines with $>40\%$ dismissal rates where creators find rules unworkable.
+  2. **Active KB Conflicts:** Automatically surfaces conflicting rules (e.g., terms simultaneously listed as prohibited and preferred).
+  3. **Stale Factual Claims:** Alerts administrators when product claims or specifications exceed their validity dates or have not been reviewed in $>90$ days.
+  4. **AI-vs-Human Divergence:** Highlights edge cases where automated models flagged items that human reviewers repeatedly dismissed.
+- **One-Click Policy Clarification:** Administrators can accept suggested policy clarifications, automatically generating an active `vNext` KB version and retiring stale policies.
+
+### 7. Four-Eyes Governance & Tamper-Evident Ledger
+- **Separation of Duties:** Enforces strict four-eyes principles—a draft creator cannot review or approve their own submission.
+- **Immutable Cryptographic Audit Trail:** Every event (draft creation, check, finding dismissal, comment, review decision, and KB update) is recorded in an immutable, SHA-256 hash-chained ledger.
+- **Brand Governance Certificate:** Generates downloadable, cryptographically signed compliance certificates (Markdown, HTML, JSON) containing full review provenance for regulatory compliance.
 
 ---
 
@@ -40,178 +97,385 @@ It enables marketing, copy, and legal review teams to audit pre-publication text
                                           |
                                           v
                     +------------------------------------------+
-                    | PII Redaction & Indian Data Protection   |
+                    | Privacy & Data Protection Layer          |
                     | (Aadhaar, PAN, UPI, IFSC, Phone, Secrets)|
                     +------------------------------------------+
                                           |
-                     +--------------------+--------------------+
-                     |                                         |
-                     v                                         v
-   +------------------------------------+   +------------------------------------+
-   |   LAYER 1: DETERMINISTIC ENGINE    |   |     LAYER 2: GROUNDED LLM JUDGE    |
-   | Dynamic KB Rule, Fact & Term Match |   |  RAG Top-k Semantic Vector Search  |
-   | Exact, Lemmatised & RapidFuzz Match|   |  Prompt-Injection-Resistant Judge  |
-   | Numeric Fact & Unit Contradictions |   |  Low Temp, Strict Pydantic Schema  |
-   +------------------------------------+   +------------------------------------+
-                     |                                         |
-                     |                                         v
-                     |                      +------------------------------------+
-                     |                      |        GROUNDING VERIFIER          |
-                     |                      | 1. Cited Rule/Fact exists in KB    |
-                     |                      | 2. Quote matches stored KB text    |
-                     |                      | 3. Span offsets locate exact text  |
-                     |                      | * Drops ungrounded hallucinations  |
-                     |                      +------------------------------------+
-                     |                                         |
-                     +--------------------+--------------------+
+                                 +--------+--------+
+                                 |                 |
+                                 v                 v
+               +-----------------------------+   +-----------------------------+
+               | DETERMINISTIC ENGINE        |   | SEMANTIC EVALUATOR (RAG)    |
+               | - Exact & Lemmatized Rules  |   | - Vector Retrieval Top-k    |
+               | - Prohibited Term Matcher   |   | - Low-Temp Structured Judge |
+               | - Numeric Contradictions    |   | - Injection-Resistant Prompt|
+               +-----------------------------+   +-----------------------------+
+                                 |                 |
+                                 |                 v
+                                 |               +-----------------------------+
+                                 |               | GROUNDING VERIFIER          |
+                                 |               | - Rule Existence Validation |
+                                 |               | - Exact Quote Verification  |
+                                 |               | - Span Boundary Validation  |
+                                 |               +-----------------------------+
+                                 |                 |
+                                 +--------+--------+
                                           |
                                           v
                     +------------------------------------------+
-                    |   DEDUPLICATION & PROVENANCE MERGING     |
-                    | Source: "Rule (Deterministic)" vs "AI"   |
+                    | DEDUPLICATION & PROVENANCE MERGER        |
+                    | (Source Attribution: Rule vs. AI Model)  |
                     +------------------------------------------+
-                                          |
-         +--------------------------------+--------------------------------+
-         |                                |                                |
-         v                                v                                v
-+-------------------+           +--------------------+           +-------------------+
-|  IMPROVEMENT I-1  |           |   IMPROVEMENT I-2  |           |  IMPROVEMENT I-3  |
-| Verified Suggest- |           | Visual Palette dE, |           | Governance In-    |
-| ion Engine with   |           | WCAG 2.2 AA Con-   |           | sights & Ambiguity|
-| Meaning Preserv-  |           | trast, DOCX/PDF    |           | Detector (4 Real  |
-| ation Checking    |           | Accessibility (0-  |           | Signals + Accept  |
-|                   |           | 100 Score Breakdown|           | Clarification vNext|
-+-------------------+           +--------------------+           +-------------------+
-         |                                |                                |
-         +--------------------------------+--------------------------------+
                                           |
                                           v
                     +------------------------------------------+
-                    |      FOUR-EYES RBAC & AUDIT LEDGER       |
-                    | No Self-Approval (Creator != Reviewer)   |
-                    | SHA-256 Chained Immutable Audit Log      |
-                    | Brand Governance Certificate Export      |
+                    | VERIFIED SUGGESTION ENGINE               |
+                    | - 3 Candidate Fixes per Finding          |
+                    | - Resolution & Non-Regression Checks     |
+                    | - Meaning & Quantity Preservation Test   |
+                    +------------------------------------------+
+                                          |
+                                          v
+                    +------------------------------------------+
+                    | FOUR-EYES GOVERNANCE & AUDIT LEDGER      |
+                    | - Role-Based Workflow (Creator/Reviewer) |
+                    | - SHA-256 Chained Immutable Ledger       |
+                    | - Exportable Signed Certificate          |
                     +------------------------------------------+
 ```
 
 ---
 
-## The Three Hackathon Improvements
+## Technology Stack
 
-### Improvement I-1: Intent-Preserving Suggestion Engine
-- Generates up to 3 verified alternatives per finding using active KB preferred terms, approved claims, and contextual minimal rewrites.
-- **3-Branch Verification:** Slices each candidate fix into the text and runs the full pipeline:
-  1. The original violation must be completely resolved.
-  2. No new blocker or major severity violations may be introduced.
-  3. Meaning preservation check ensures numbers and factual quantities outside the flagged span remain unmodified.
-- Surfaced in the UI with a distinct `verified: meaning preserved` badge and 1-click application.
-
-### Improvement I-2: Multi-Format Visual & Accessibility Review
-- **Palette Adherence:** CIELAB $\Delta E^*$ (CIE76 Euclidean distance) calculation against approved brand colors ($\Delta E^* \le 12.0$ matches; $> 15.0$ flagged).
-- **WCAG 2.2 AA Contrast:** Evaluates relative luminance contrast ratio against the statutory 4.5:1 standard.
-- **Alt-Text Audit:** Validates presence and descriptiveness on raster images, DOCX embedded drawings (`wp:docPr`), and PDF page rasters.
-- **Document Structure:** Detects heading-level skips (Heading 1 -> Heading 3), vague hyperlink anchors ("click here"), and tables missing assistive header rows (`tblHeader`).
-- **Transparent Accessibility Score (0-100):** Displayed with full itemized deductions breakdown (`-15` contrast, `-10` alt-text, `-10` heading skip, `-10` table header, `-5` title/language).
-
-### Improvement I-3: Governance Insights & Ambiguity Signal Engine
-- Evaluates four real operational signals across workspace activity:
-  1. **High Creator Dismissals:** Guidelines with $> 40\%$ dismissal rate (minimum sample size $\ge 3$).
-  2. **Active KB Conflicts:** Prohibited terms that are also listed as preferred, or facts with overlapping dates and contradictory values.
-  3. **Stale Facts:** Product specifications whose `valid_to` date has passed or unreviewed for $> 90$ days.
-  4. **AI-vs-Human Disagreement:** Findings flagged by automated models but dismissed by human reviewers as contextually permissible.
-- **1-Click Actionability:** `POST /insights/accept-clarification` clones the active KB version, applies the clarified policy, marks it active (`vNext`), deactivates the old version, and logs an immutable audit event.
+- **Backend:** Python 3.10+, [FastAPI](https://fastapi.tiangolo.com/), [SQLAlchemy](https://www.sqlalchemy.org/) 2.0, [Pydantic](https://docs.pydantic.dev/) v2, [Alembic](https://alembic.sqlalchemy.org/)
+- **Database:** SQLite (default for instant local run) or PostgreSQL / [Supabase](https://supabase.com/) with pgvector
+- **Frontend:** [React](https://react.dev/) 18, [Vite](https://vitejs.dev/), [TypeScript](https://www.typescriptlang.org/), [Tailwind CSS](https://tailwindcss.com/) v4
+- **Typography:** Self-hosted Fraunces (Variable Display Serif), Instrument Sans, JetBrains Mono
+- **Document & Media Analysis:** `python-docx`, `pypdf`, `Pillow`, `colormath`
+- **Testing & QA:** `pytest`, `pytest-asyncio`, `httpx`, Vitest
 
 ---
 
-## Seeded Demo Accounts
+## User Personas & Workspaces
 
-All seeded demo accounts use the standard password: `Demo@12345`
+BrandSentinel includes three fully populated demo brand workspaces:
+- **NovaFit:** Health & wellness consumer brand (medical claims, guarantees, and lifestyle tone).
+- **Lumen Bank:** Financial services brand (statutory APR disclosures, guarantees, and regulatory terms).
+- **Aster University:** Higher education institution (accreditation facts, tone, and visual guidelines).
 
-| Workspace | Role | Email | Best For Testing |
+### Seeded Demo Accounts
+All seeded accounts share the default password: **`Demo@12345`**
+
+| Brand Workspace | Role | Email | Responsibilities |
 |---|---|---|---|
-| **NovaFit** | Creator | `creator1@novafit.local` | Draft submission, sample loader, verified suggestions |
-| **NovaFit** | Reviewer | `reviewer1@novafit.local` | Escalation queue, four-eyes approval, signing |
-| **NovaFit** | Manager | `manager1@novafit.local` | Manager review queue, approval with notes |
-| **NovaFit** | Admin | `admin@novafit.local` | KB editing, Insights ambiguity detector, accept clarification |
-| **Lumen Bank** | Creator | `creator1@lumenbank.local` | Financial copy with missing APR disclaimers |
-| **Lumen Bank** | Reviewer | `reviewer1@lumenbank.local` | High-risk financial claims evaluation |
-| **Lumen Bank** | Manager | `manager1@lumenbank.local` | Regulatory review and change requests |
-| **Lumen Bank** | Admin | `admin@lumenbank.local` | Banking KB configuration |
-| **Aster University** | Creator | `creator1@aster.local` | Academic marketing, outdated accreditation facts |
-| **Aster University** | Reviewer | `reviewer1@aster.local` | Scholarly tone verification |
-| **Aster University** | Manager | `manager1@aster.local` | Convocation and admissions copy approval |
-| **Aster University** | Admin | `admin@aster.local` | Higher-ed KB configuration |
+| **NovaFit** | Creator | `creator1@novafit.local` | Draft writing, file upload, running checks, applying fixes |
+| **NovaFit** | Manager | `manager1@novafit.local` | Review queue triage, change requests, team approvals |
+| **NovaFit** | Authorised Reviewer | `reviewer1@novafit.local` | High-risk escalation queue, signing & approval stamp |
+| **NovaFit** | Administrator | `admin@novafit.local` | KB rule management, insights & ambiguity clarification |
+| **Lumen Bank** | Creator | `creator1@lumenbank.local` | Drafting financial marketing & rate disclosures |
+| **Lumen Bank** | Authorised Reviewer | `reviewer1@lumenbank.local` | Regulatory compliance review & signing |
+| **Aster University** | Creator | `creator1@aster.local` | Academic marketing and admissions copy |
+| **Aster University** | Administrator | `admin@aster.local` | Academic guidelines, fact verification, audit logs |
 
 ---
 
-## Quickstart Guide
+## Prerequisites
 
-### Option 1: Native Local Run (Windows, macOS, Linux)
+Before running BrandSentinel, ensure you have the following installed on your machine:
 
-#### 1. Backend Setup
+1. **Python:** Version 3.10, 3.11, or 3.12 (`python --version`)
+2. **Node.js:** Version 18.x or 20.x+ (`node --version`)
+3. **Package Manager:** `npm` (included with Node.js) or `pnpm`
+4. **Git:** (`git --version`)
+
+---
+
+## Step-by-Step Installation & Quickstart
+
+Follow these steps to clone, configure, and run the complete application locally.
+
+### 1. Clone the Repository
+
 ```bash
-# Clone the repository
 git clone https://github.com/Pratheek-16/Brandsentinel.git
 cd Brandsentinel
-
-# Python Virtual Environment
-python -m venv .venv
-
-# Activate Virtual Environment:
-# On Windows PowerShell:
-.\.venv\Scripts\Activate.ps1
-# On Linux / macOS:
-source .venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run database migrations and seed demo data
-alembic -c backend/alembic.ini upgrade head
-python scripts/seed_demo.py
-
-# Start Backend Server (runs on http://localhost:8000)
-python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
 ```
 
-#### 2. Frontend Setup (in a separate terminal)
+---
+
+### 2. Configure Environment Variables
+
+Copy the provided environment template to `.env`:
+
+```bash
+# On Linux / macOS:
+cp .env.example .env
+
+# On Windows PowerShell:
+Copy-Item .env.example .env
+```
+
+The default `.env` is pre-configured to work immediately with local SQLite:
+
+```ini
+# Database: SQLite is used by default for zero-friction setup
+DATABASE_URL=sqlite:///./brandsentinel.db
+
+# LLM Model Configuration:
+# Leave blank to use built-in intelligent deterministic & mock evaluator,
+# or provide your Gemini API key to enable live Gemini analysis:
+GEMINI_API_KEY=your_gemini_api_key_here
+LLM_MODEL=
+
+# Authentication secret (change for production)
+JWT_SECRET_KEY=brandsentinel_local_dev_secret_key_32chars
+JWT_ALGORITHM=HS256
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=480
+
+# Auto-seed demo accounts on startup
+SEED_DEMO=false
+```
+
+> **Note on Databases:** SQLite requires zero installation. If you prefer to use Supabase or PostgreSQL, simply update `DATABASE_URL` in `.env` to:  
+> `DATABASE_URL=postgresql+psycopg2://<user>:<password>@<host>:5432/<dbname>`
+
+---
+
+### 3. Set Up the Python Backend
+
+Create and activate a virtual environment, then install Python dependencies:
+
+**On Linux / macOS:**
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+**On Windows (PowerShell):**
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+---
+
+### 4. Run Database Migrations & Seed Demo Data
+
+Initialize the database schema and populate it with sample brands, rules, facts, and demo accounts:
+
+```bash
+# Apply database migrations
+alembic -c backend/alembic.ini upgrade head
+
+# Seed demo brands, rules, and user accounts
+python scripts/seed_demo.py
+```
+
+You should see output confirming that `NovaFit`, `Lumen Bank`, and `Aster University` have been seeded with rules, terms, facts, claims, and users.
+
+---
+
+### 5. Set Up the React Frontend
+
+Open a new terminal window, navigate to `frontend/`, install dependencies, and build:
+
 ```bash
 cd frontend
 npm install
+
+# Build static assets
 npm run build
+```
+
+---
+
+### 6. Access the Application
+
+You can now start both servers for active development:
+
+#### Terminal 1: Backend Server
+```bash
+# From repository root with virtual environment activated:
+python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+The backend API is now running at `http://localhost:8000`.
+
+#### Terminal 2: Frontend Server
+```bash
+# From frontend/ directory:
 npm run dev
-# Frontend runs on http://localhost:5173
 ```
+The frontend application is now running at **`http://localhost:5173`**.
+
+Open your browser to **`http://localhost:5173`** and log in with any demo account (e.g., `creator1@novafit.local` with password `Demo@12345`).
 
 ---
 
-### Option 2: Docker Setup (Self-Contained)
+## Alternative Run Modes
+
+### Single-Server Production Mode
+
+FastAPI is configured to serve the compiled React frontend directly from `frontend/dist/`. Once `npm run build` has run, you can run the entire application using only the backend command:
 
 ```bash
+# 1. Build frontend once
+cd frontend && npm install && npm run build && cd ..
+
+# 2. Run backend
+python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
+```
+Open **`http://localhost:8000`** in your browser to access both the web application and API from a single port.
+
+---
+
+### Docker & Containerized Setup
+
+BrandSentinel includes a multi-stage `Dockerfile` that packages both the frontend and backend into a self-contained image:
+
+```bash
+# Build the Docker image
 docker build -t brandsentinel .
-docker run -p 10000:10000 -e PORT=10000 brandsentinel
-# Access web app and API documentation at http://localhost:10000
+
+# Run the container
+docker run -p 8000:10000 -e PORT=10000 brandsentinel
 ```
+
+Access the application at **`http://localhost:8000`**.
 
 ---
 
-## Running the Verification Test Suite
+## Testing & Quality Assurance
 
-All 46 unit and integration tests run deterministically:
+BrandSentinel is backed by a comprehensive suite of automated tests and benchmark evaluations.
+
+### Backend Unit & Integration Tests
+
+Run the complete test suite covering authentication, RBAC, knowledge base versioning, suggestion verification, visual scoring, ambiguity detection, and PII redaction:
 
 ```bash
-# Run complete test suite
 python -m pytest backend/tests/ -v
+```
 
-# Run BrandBench v2 held-out evaluation runner
+To run a specific test suite:
+```bash
+# Test the 3-branch suggestion verification engine
+python -m pytest backend/tests/test_verified_suggestions.py -v
+
+# Test the visual palette and accessibility inspector
+python -m pytest backend/tests/test_visual_accessibility.py -v
+
+# Test governance insights and ambiguity detection
+python -m pytest backend/tests/test_governance_insights.py -v
+
+# Test end-to-end user journeys
+python -m pytest backend/tests/test_e2e_journeys.py -v
+```
+
+### Frontend Test Suite
+
+Run frontend unit and component tests:
+
+```bash
+cd frontend
+npm test
+```
+
+### Held-Out Evaluation Benchmark
+
+Evaluate the detection engine against the held-out evaluation dataset:
+
+```bash
 python benchmark/run_benchmark.py
 ```
+This tests accuracy across multi-category violations, clean true-negative cases, adversarial edge cases, and prompt injection attempts. Detailed benchmark metrics and confusion matrices are generated in `benchmark/report.md`.
 
 ---
 
-## Verification & Reliability Highlights
+## API Reference
 
-- **46 Unit & Integration Tests Passing:** Across 14 test modules verifying RBAC, KB versioning, suggestion verification, visual scoring, ambiguity detection, Indian PII redaction, and startup security.
-- **BrandBench v2 Evaluation:** Evaluated on 60 novel held-out test cases across 4 brands with **86.8% Combined F1 Score** and **0.0% Prompt Injection Bypass Rate**.
-- **Cryptographic Tamper-Evidence:** All review decisions, KB updates, and findings dismissals are recorded in a SHA-256 hash-chained immutable audit log.
-- **Exportable Governance Certificate:** Downloadable Markdown, HTML, and JSON compliance certificate signed with a verification hash for regulatory archiving.
+FastAPI automatically generates interactive OpenAPI documentation:
+
+- **Interactive Swagger UI:** [`http://localhost:8000/docs`](http://localhost:8000/docs)
+- **ReDoc Documentation:** [`http://localhost:8000/redoc`](http://localhost:8000/redoc)
+- **OpenAPI Schema (JSON):** [`http://localhost:8000/openapi.json`](http://localhost:8000/openapi.json)
+
+### Key Endpoints
+
+| Category | Method | Endpoint | Description |
+|---|---|---|---|
+| **Auth** | `POST` | `/auth/login` | Authenticate user and issue JWT token |
+| **Auth** | `GET` | `/auth/me` | Retrieve profile and permissions of current user |
+| **Drafts** | `POST` | `/drafts/` | Create a new content draft |
+| **Drafts** | `GET` | `/drafts/{draft_id}` | Retrieve draft content, status, and findings |
+| **Drafts** | `POST` | `/drafts/{draft_id}/check` | Run multi-layer compliance analysis on draft |
+| **Drafts** | `POST` | `/drafts/{draft_id}/action` | Apply rewrite fix or dismiss finding with justification |
+| **Drafts** | `POST` | `/drafts/{draft_id}/submit` | Submit draft to review queue |
+| **Reviews** | `GET` | `/reviews/queue` | List drafts pending review for current role |
+| **Reviews** | `POST` | `/reviews/{draft_id}/decide` | Approve, reject, or request changes with notes |
+| **Visual** | `POST` | `/visual/inspect` | Audit image, DOCX, or PDF for palette & WCAG 2.2 AA |
+| **KB** | `GET` | `/kb/rules` | List active brand guidelines and rules |
+| **KB** | `POST` | `/kb/rules` | Create a new brand rule |
+| **Insights** | `GET` | `/insights/summary` | Retrieve operational ambiguity signals & conflicts |
+| **Insights** | `POST` | `/insights/accept-clarification` | Apply policy clarification and advance KB version |
+| **Audit** | `GET` | `/audit/trail` | Retrieve tamper-evident SHA-256 chained audit logs |
+| **Certificate** | `GET` | `/drafts/{draft_id}/certificate` | Export cryptographically signed governance certificate |
+
+---
+
+## Project Directory Structure
+
+```
+Brandsentinel/
+├── backend/
+│   ├── alembic/                 # Database migration scripts
+│   ├── app/
+│   │   ├── api/                 # API route handlers (auth, drafts, reviews, kb, visual, insights)
+│   │   ├── core/                # Config, security, hashing, JWT, database session
+│   │   ├── models/              # SQLAlchemy database models
+│   │   ├── schemas/             # Pydantic request/response schemas
+│   │   └── services/            # Business logic:
+│   │       ├── check_engine.py  # Multi-layer evaluation pipeline
+│   │       ├── grounding.py     # Grounding verifier and citation checker
+│   │       ├── suggestions.py   # Intent-preserving suggestion verifier
+│   │       ├── visual_audit.py  # CIELAB Delta-E and WCAG contrast inspector
+│   │       ├── insights.py      # Governance ambiguity signal engine
+│   │       ├── redaction.py     # Indian PII redaction service
+│   │       └── audit.py         # SHA-256 chained tamper-evident ledger
+│   └── tests/                   # 55 automated pytest verification suites
+├── frontend/
+│   ├── src/
+│   │   ├── components/          # Navigation rail, top strip, workflow ribbon, dialogs
+│   │   ├── screens/             # Screen views:
+│   │   │   ├── ContentEditor.tsx       # Writing desk & draft authoring
+│   │   │   ├── ReviewScreen.tsx        # Signature proof canvas & margin notes
+│   │   │   ├── ReviewQueueScreen.tsx   # Four-eyes review & escalation queue
+│   │   │   ├── KnowledgeBaseScreen.tsx # Brand rules manager & live preview
+│   │   │   ├── VisionInspectorScreen.tsx # Visual & document accessibility auditor
+│   │   │   ├── InsightsScreen.tsx      # Ambiguity resolution & policy updates
+│   │   │   ├── AuditTrailScreen.tsx    # Cryptographic ledger & export
+│   │   │   └── LoginScreen.tsx         # Persona selector & authentication
+│   │   ├── services/            # API client layer
+│   │   └── styles/
+│   │       └── tokens.css       # Design system tokens (Paper & Night Desk)
+│   ├── package.json
+│   └── vite.config.ts
+├── benchmark/                   # Held-out evaluation dataset & test runner
+├── scripts/
+│   └── seed_demo.py             # Database seeding script for all demo brands
+├── docs/                        # Architecture guides, accessibility specs, research protocol
+├── Dockerfile                   # Multi-stage production container definition
+├── docker-compose.yml           # Local multi-service orchestration
+├── requirements.txt             # Python backend dependencies
+└── README.md                    # Project documentation & quickstart guide
+```
+
+---
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
